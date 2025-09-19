@@ -1,0 +1,138 @@
+[project]
+name = "github_research_mcp"
+version = "0.5.2"
+description = "Github Search Mcp project"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "aiohttp>=3.12.15",
+    "async-lru>=2.0.5",
+    "asyncclick>=8.1.8",
+    "dirty-equals>=0.9.0",
+    "diskcache>=5.6.3",
+    "elasticsearch>=9.1.1",
+    "fastmcp>=2.3.5",
+    "githubkit>=0.13.2",
+    "google-genai>=1.37.0",
+    "inline-snapshot>=0.28.0",
+    "makefun>=1.16.0",
+    "mcp>=1.9.0",
+    "openai>=1.106.1",
+    "pydantic>=2.11.7",
+    "pytest-dotenv>=0.5.2",
+]
+
+[tool.poetry]
+packages = [
+    { include = "github_research_mcp", from = "src" }
+]
+[tool.hatch.metadata]
+allow-direct-references=true
+
+[project.scripts]
+github-research-mcp = "github_research_mcp.main:run_mcp"
+
+[tool.pytest.ini_options]
+asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "session"
+env_files = [".env"]
+addopts = ["--inline-snapshot=disable","-vv","-s"]
+markers = [
+    "skip_on_ci: Skip running the test when running on CI",
+]
+
+[dependency-groups]
+dev = [
+  "pytest",
+  "pytest-mock",
+  "pytest-asyncio",
+  "ruff",
+]
+lint = [
+  "ruff"
+]
+
+[build-system]
+requires = ["hatchling", "uv-dynamic-versioning>=0.7.0"]
+build-backend = "hatchling.build"
+
+[tool.ruff]
+target-version = "py312"
+lint.fixable = ["ALL"]
+lint.ignore = [
+    "COM812",
+    "PLR0913", # Too many arguments, MCP Servers have a lot of arguments, OKAY?!
+]
+lint.extend-select = [
+    "A",
+    "ARG",
+    "B",
+    "C4",
+    "COM",
+    "DTZ",
+    "E",
+    "EM",
+    "F",
+    "FURB",
+    "I",
+    "LOG",
+    "N",
+    "PERF",
+    "PIE",
+    "PLR",
+    "PLW",
+    "PT",
+    "PTH",
+    "Q",
+    "RET",
+    "RSE",
+    "RUF",
+    "S",
+    "SIM",
+    "TC",
+    "TID",
+    "TRY",
+    "UP",
+    "W",
+]
+
+line-length = 140
+extend-exclude=["**/clients/graphql/**"]
+
+[tool.ruff.lint.extend-per-file-ignores]
+"**/tests/*.py" = [
+    "S101", # Ignore asserts
+    "DTZ005", # Ignore datetime.UTC
+    "PLR2004", # Ignore magic values
+    "E501", # Ignore line length
+    
+]
+"**/references/*" = ["ALL"]
+"template/*" = ["ALL"]
+
+[tool.pyright]
+pythonVersion = "3.12"
+extraPaths = ["src/"]
+include = ["src/"]
+exclude = [
+    "**/archive/**",
+    "**/node_modules/**",
+    "**/__pycache__/**",
+    "**/.venv/**",
+    ".venv",
+    "**/.pytest_cache/**",
+    "**/.ruff_cache/**",
+    "**/uv/python/**",
+    "**/clients/graphql/**",
+]
+reportMissingTypeStubs = false
+reportExplicitAny = false
+
+executionEnvironments = [
+    { root = "src", reportPrivateUsage = false},
+]
+
+[tool.uv.workspace]
+members = [
+    "elasticsearch-esql-tools-mcp",
+]
