@@ -1,6 +1,19 @@
-# GitHub Research MCP
+# GitHub Research MCP and Agents.md Generator
 
-A comprehensive Model Context Protocol (MCP) server for researching GitHub repositories, issues, and pull requests with AI-powered analysis and summarization capabilities.
+A Model Context Protocol (MCP) server for researching GitHub repositories, issues, and pull requests with sampling-powered analysis and summarization capabilities.
+
+## Agents.md Generator
+
+The Agents.md Generator is a free & public MCP Server that generates AGENTS.md files for public GitHub repositories that have at least 10 stars. The Agents.md generator is powered by the GitHub Research MCP and leverages the repo summarization tool to generate the AGENTS.md file.
+
+Try it out!
+
+| IDE | Command | 
+| --- | --- |
+| Cursor | [Add it to Cursor](cursor://anysphere.cursor-deeplink/mcp/install?name=github-research-mcp-public&config=eyJ1cmwiOiJodHRwczovL2dpdGh1Yi1yZXNlYXJjaC1tY3AtcHVibGljLmZhc3RtY3AuYXBwL21jcCJ9) |
+| Gemini CLI | `gemini mcp add github-research-mcp-public https://github-research-mcp-public.fastmcp.app/mcp --transport http` |
+| Claude Desktop | [Download manifest](https://github-research-mcp-public.fastmcp.app/manifest.dxt?v=9320d032-0eee-4025-bbe0-302556c54280) |
+| Claude Code | `claude mcp add --scope local --transport http github-research-mcp-public https://github-research-mcp-public.fastmcp.app/mcp`
 
 ## Features
 
@@ -17,7 +30,7 @@ A comprehensive Model Context Protocol (MCP) server for researching GitHub repos
 - **Comment Analysis**: Review all comments and discussion threads
 
 ### AI-Powered Analysis
-- **Intelligent Summarization**: Generate focused summaries using OpenAI models
+- **Intelligent Summarization**: Generate focused summaries using Google Gemini by default (OpenAI optional)
 - **Context-Aware Research**: AI-driven analysis of complex GitHub data
 - **Flexible Prompting**: Customizable prompts for different analysis needs
 - **Structured Data Extraction**: Convert unstructured GitHub data into structured formats
@@ -29,54 +42,41 @@ A comprehensive Model Context Protocol (MCP) server for researching GitHub repos
 - **Flexible Configuration**: Support for both stdio and HTTP transports
 - **Public Repository Support**: Specialized tools for public repository analysis
 
-## Installation
+## Self Hosting GitHub Research MCP
 
+To run the server as a stdio MCP Server, use the following command:
 ```bash
-uv sync
+uvx github-research-mcp
 ```
 
-Or, for development:
-
+To run the server as a HTTP MCP Server, use the following command:
 ```bash
-uv sync --group dev
+uvx github-research-mcp --mcp-transport streamable-http
 ```
 
-## Configuration
+Note: To disable AI-powered analysis, set `DISABLE_SAMPLING=true`.
 
 ### Environment Variables
 
 **Required:**
 - `GITHUB_TOKEN` or `GITHUB_PERSONAL_ACCESS_TOKEN`: Required for GitHub API access
 
-**AI Features (Optional):**
-- `OPENAI_API_KEY`: Required for AI summarization features (optional if sampling is disabled)
-- `OPENAI_MODEL`: OpenAI model to use for summarization (e.g., "gpt-4", "gpt-3.5-turbo")
-- `OPENAI_BASE_URL`: Custom OpenAI API base URL (optional)
-- `DISABLE_SAMPLING`: Set to "true" to disable AI summarization features
+**Sampling Fallback:**
+For clients that dont support sampling, you can provide an API key for either Google or OpenAI to enable sampling fallback -- where the server performs an AI call to generate the response instead of relying on the client's sampling capabilities.
+
+- Google AI (default):
+  - `GOOGLE_API_KEY`: Required to enable summarization and research tools
+  - `GOOGLE_MODEL`: Gemini model to use (default: `gemini-2.5-flash`)
+- OpenAI (optional alternative):
+  - `OPENAI_API_KEY`: If using OpenAI with a compatible sampling handler
+  - `OPENAI_MODEL`: OpenAI model (e.g., `gpt-4o`) if using OpenAI
+  - `OPENAI_BASE_URL`: Custom OpenAI API base URL (optional)
+- Control:
+  - `DISABLE_SAMPLING`: Set to `true` to disable AI summarization/research tools
 
 **Public Repository Features:**
 - `MINIMUM_STARS`: Minimum star count for repository summarization (default: 10)
 - `OWNER_ALLOWLIST`: Comma-separated list of owners to allow regardless of star count
-
-## Usage
-
-### Command-Line Interface
-
-Run the MCP server:
-
-```bash
-# Main server with full functionality (requires OpenAI configuration)
-uv run github-research-mcp
-
-# Without AI summarization
-DISABLE_SAMPLING=true uv run github-research-mcp
-
-# Public repository server (specialized for public repos)
-uv run python -m github_research_mcp.public
-
-# With HTTP transport
-uv run github-research-mcp --mcp-transport streamable-http
-```
 
 ### Available Tools
 
@@ -87,18 +87,15 @@ The server provides multiple tool categories:
 - `find_files`: Search for files by patterns
 - `search_files`: Advanced file search with filtering
 - `get_readmes`: Retrieve README files
-- `count_file_extensions`: Analyze file type distribution
+- `get_file_extensions`: Analyze file type distribution
 
 **Issue & Pull Request Tools** (always available):
 - `get_issue_or_pull_request`: Get detailed information about specific issues/PRs
 - `search_issues_or_pull_requests`: Search issues/PRs with advanced filtering
 
-**AI-Powered Tools** (requires OpenAI configuration):
+**Sampling-Powered Tools** (requires Sampling or Sampling Fallback configuration):
 - `summarize`: Generate AI-powered repository summaries
 - `research_issue_or_pull_request`: AI-driven analysis of issues/PRs
-
-**Public Repository Tools** (public server only):
-- `summarize`: Generate summaries for public repositories with star/owner filtering
 
 ## MCP Client Configuration
 
@@ -110,21 +107,19 @@ The server provides multiple tool categories:
 
 ```json
 {
-    "mcp": {
-        "servers": {
-            "GitHub Research MCP": {
-                "command": "uvx",
-                "args": [
-                    "https://github.com/strawgate/py-mcp-collection.git#subdirectory=github_research_mcp"
-                ],
-                "env": {
-                    "GITHUB_TOKEN": "your_github_token_here",
-                    "OPENAI_API_KEY": "your_openai_api_key_here",
-                    "OPENAI_MODEL": "gpt-4"
-                }
-            }
+  "mcp": {
+    "servers": {
+      "GitHub Research MCP": {
+        "command": "uvx",
+        "args": [
+          "github-research-mcp",
+        ],
+        "env": {
+          "GITHUB_TOKEN": "your_github_token_here",
         }
+      }
     }
+  }
 }
 ```
 
@@ -134,17 +129,15 @@ Add the following to your MCP Server configuration:
 
 ```json
 {
-    "GitHub Research MCP": {
-        "command": "uvx",
-        "args": [
-            "https://github.com/strawgate/py-mcp-collection.git#subdirectory=github_research_mcp"
-        ],
-        "env": {
-            "GITHUB_TOKEN": "your_github_token_here",
-            "OPENAI_API_KEY": "your_openai_api_key_here",
-            "OPENAI_MODEL": "gpt-4"
-        }
+  "GitHub Research MCP": {
+    "command": "uvx",
+    "args": [
+      "github-research-mcp",
+    ],
+    "env": {
+      "GITHUB_TOKEN": "your_github_token_here",
     }
+  }
 }
 ```
 
@@ -175,6 +168,11 @@ Once configured, you can use the tools for comprehensive GitHub research:
 ```bash
 # Install development dependencies
 uv sync --group dev
+
+# Required test environment
+export GITHUB_TOKEN=...           # required
+export GOOGLE_API_KEY=...         # required for sampling tests
+export MODEL=gemini-2.5-flash     # optional (default)
 
 # Run tests
 pytest

@@ -331,23 +331,23 @@ class RepositoryServer(BaseServer):
             title="System Prompt",
             text="""
 Your goal is to produce an AGENTS.md++: comprehensive, information-dense, and immediately actionable for coding agents. Be concise per
-bullet, but cover all important areas thoroughly. Optimize for density; ~150-250 lines is a good target if evidence warrants.
+bullet, but cover all important areas thoroughly. Optimize for density.
 
 GLOBAL CONSTRAINTS:
-- Prefer concrete evidence: cite files and key symbols; include short code/line ranges when decisive.
-- Include non-obvious, project-unique details; if standard for this stack, say "standard for this project type."
+- Focus on non-obvious, project-unique details; if standard for this stack, say "standard for this project type."
+- Prefer concrete evidence: cite files and key symbols; include short code/line ranges when decisive. Prefer
+  pointing to a location where more information can be found over attempting to provide a comprehensive analysis
+  of every relevant file to the topic.
 - If a section is incomplete, include what you found and add a bullet "Where to learn more" listing the best
-  files/dirs to consult and relevant search patterns. If no evidence exists, write "Not found" and cite what you searched.
+  files/dirs to consult or relevant search patterns.
 - Avoid repetition; cross-reference earlier bullets instead of restating.
-- Prefer concrete evidence over generalities. Prefer pointing to a location where more information can be found over
-  attempting to provide a comprehensive analysis of every relevant file to the topic.
-- At most 1-2 citations per bullet. Prefer the single best file + symbol.
-- No long file lists; representative example + pointer.
+- At most 1-2 citations per bullet. Prefer the single best file + symbol. No long file lists; representative example + pointer.
+- When citing, provide inline markdown file links like `transactions are managed by the [transaction service](transactions/service.ts)`.
 
 OUTPUT FORMAT (use these exact section titles; keep each section compact but complete):
 
 ## Architecture Overview
-- ≤120 words on purpose, major modules, and primary data flow. Cite 2-4 core files/dirs.
+- ≤120 words on purpose, major modules, and primary data flow.
 
 ## Code Style & Conventions
 - Extract explicit rules from linter/formatter/type-check configs; mark inferred rules as "(inferred)".
@@ -355,14 +355,14 @@ OUTPUT FORMAT (use these exact section titles; keep each section compact but com
   test naming, package layout.
 - Cite exact config paths and keys (e.g., `pyproject.toml:[tool.black]`, `checkstyle.xml:RuleName`, `spotless*`) if known
 
-## Observability & Error Handling
-- Logging libraries/patterns, metrics/tracing (if any), error categorization/utilities. Cite files/symbols.
+## Observability
+- Is the application observable? What logging libraries/patterns are used? Are metrics and tracing used?
 
 ## Dependencies & Services
 - Only critical/non-standard runtime dependencies and external services: version/purpose and integration points (path + symbol).
 
 ## Key Directories & Entry Points
-- Major dirs with 1-2 example files each; identify app entry points and why they matter.
+- Major dirs with 1-2 with important files highlighted; identify app entry points and why they matter.
 
 ## Build & Test
 Build and test commands should not be guessed. They must be exact from the existing documentation in the repository.
@@ -379,10 +379,6 @@ Build and test commands should not be guessed. They must be exact from the exist
   (e.g., `**/routes*`, `**/controllers/**`, `server.*`), OpenAPI/Swagger (`**/openapi*`, `**/swagger*`),
   GraphQL schema/resolvers (`**/*.graphql*`, `**/schema*`, `**/resolver*`), gRPC protos (`**/*.proto`), and
   CLI help commands.
-
-## Data Model & Storage
-- Identify locations of schemas/migrations/models and provide a, "Where to learn more" for migrations directories,
-  ORM models, schema registries, etc.
 
 ## Compatibility & Versioning
 - Required language/toolchain versions; framework/library major versions; semver or compatibility guarantees.
@@ -472,7 +468,7 @@ Prioritized selection funnel (target distribution; adjust if missing):
 
 If the repository is large, fill the full 100-file budget across the categories.
 
-Language-specific overlays (choose relevant ones to meet the 100-file budget):
+Language-specific recommendations (choose relevant ones to meet the 100-file budget):
 - Java/Gradle: `build.gradle`, `settings.gradle`, `gradle.properties`, `buildSrc/**`, `build-conventions/**`, `**/checkstyle.xml`,
   `**/spotless*`, module `*/src/{{main, test}}/java/**` entry points.
 - Python: `pyproject.toml`, `setup.cfg`, `requirements*.txt`, `tox.ini`, `pytest.ini`, `mypy.ini`, `ruff.toml`, `src/**/__init__.py`
@@ -483,8 +479,8 @@ Language-specific overlays (choose relevant ones to meet the 100-file budget):
 - Rust: `Cargo.toml`, `build.rs`, `src/main.rs`, `src/lib.rs`.
 - .NET: `*.sln`, `*.csproj`, `Directory.Build.*`, `src/**/Program.cs`.
 
-Only include overlays for stacks detected by manifests/config (e.g., presence of build.gradle, pyproject.toml). Omit non-relevant overlays
-entirely.
+Only include recommendations for stacks detected by manifests/config (e.g., presence of build.gradle, pyproject.toml).
+Omit non-relevant recommendations entirely.
 
 {object_in_text_instructions(object_type=RequestFilesForSummary, require=True)}
 
@@ -519,6 +515,15 @@ Please request files now.""",
                 "The following files were gathered to help you provide a summary of the repository. Files have been truncated to 400 lines:"
             ),
             obj=requested_files,
+        )
+
+        user_prompt_builder.add_text_section(
+            title="Instructions",
+            text="""
+Please provide the summary of the repository. Your response should be the summary, complete and self-contained and should not mention
+from our conversation here. Do not start your response with something like "Here is the summary of the repository:" and do not include
+any other text other than the summary. Once you have provided a really great summary, we will continue with our conversation.
+""",
         )
 
         logger.info(f"Producing summary of {owner}/{repo} via sampling.")

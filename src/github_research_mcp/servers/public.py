@@ -49,10 +49,10 @@ class PublicServer:
     async def _check_owner_allowlist(self, owner: OWNER) -> bool:
         return owner in self.owner_allowlist
 
-    async def summarize(self, owner: OWNER, repo: REPO) -> RepositorySummary:
+    async def generate_agents_md(self, owner: OWNER, repo: REPO) -> RepositorySummary:
         if not await self._check_minimum_stars(owner=owner, repo=repo) and not await self._check_owner_allowlist(owner=owner):
             msg = (
-                f"Repository {owner}/{repo} is not eligible for summarization, "
+                f"Repository {owner}/{repo} is not eligible for AGENTS.md generation, "
                 f"it has less than {self.minimum_stars} stars and is not explicitly allowlisted."
             )
             raise ValueError(msg)

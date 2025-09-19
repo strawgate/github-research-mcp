@@ -8,7 +8,7 @@ from fastmcp.tools import FunctionTool
 from githubkit.github import GitHub
 
 from github_research_mcp.clients.github import get_github_client
-from github_research_mcp.sampling.google_genai import GoogleGenaiSamplingHandler
+from github_research_mcp.sampling.handler import get_sampling_handler
 from github_research_mcp.servers.issues_or_pull_requests import IssuesOrPullRequestsServer
 from github_research_mcp.servers.repository import RepositoryServer
 
@@ -17,11 +17,6 @@ class ConfigurationError(Exception):
     def __init__(self, message: str):
         self.message = message
         super().__init__(self.message)
-
-
-def get_sampling_handler():
-    return GoogleGenaiSamplingHandler(default_model=os.getenv("MODEL") or "gemini-2.5-flash")
-
 
 disable_sampling = os.getenv("DISABLE_SAMPLING")
 

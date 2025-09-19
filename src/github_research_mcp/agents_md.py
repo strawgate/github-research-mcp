@@ -1,3 +1,5 @@
+"""The entrypoint for the publicly hosted Agents.md Generator MCP Server."""
+
 import asyncio
 import os
 from typing import Any, Literal
@@ -16,13 +18,6 @@ from github_research_mcp.servers.repository import RepositoryServer
 from github_research_mcp.vendored.caching import InMemoryCache, MethodSettings, ResponseCachingMiddleware
 from github_research_mcp.vendored.elasticsearch_cache import ElasticsearchCache
 
-
-class ConfigurationError(Exception):
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(self.message)
-
-
 ONE_WEEK_IN_SECONDS = 60 * 60 * 24 * 7
 
 minimum_stars_env: str | None = os.getenv("MINIMUM_STARS")
@@ -32,7 +27,7 @@ owner_allowlist_env: str | None = os.getenv("OWNER_ALLOWLIST")
 owner_allowlist: list[str] = [owner.strip() for owner in (owner_allowlist_env.split(",") if owner_allowlist_env else [])]
 
 mcp = FastMCP[None](
-    name="GitHub Research MCP",
+    name="Agents.md Generator",
     sampling_handler=get_sampling_handler(),
     sampling_handler_behavior="always",
 )
@@ -45,7 +40,7 @@ public_server: PublicServer = PublicServer(
     repository_server=repository_server, minimum_stars=minimum_stars, owner_allowlist=owner_allowlist
 )
 
-mcp.add_tool(tool=FunctionTool.from_function(fn=public_server.summarize))
+mcp.add_tool(tool=FunctionTool.from_function(fn=public_server.generate_agents_md))
 
 mcp.add_middleware(middleware=StructuredLoggingMiddleware(include_payloads=True))
 
