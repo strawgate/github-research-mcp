@@ -42,6 +42,10 @@ Try it out!
 - **Flexible Configuration**: Support for both stdio and HTTP transports
 - **Public Repository Support**: Specialized tools for public repository analysis
 
+## Sampling Fallback
+
+For clients that dont support sampling, you can provide an API key for either Google or OpenAI to enable sampling fallback -- where the server performs an AI call to generate the response instead of relying on the client's sampling capabilities.
+
 ## Self Hosting GitHub Research MCP
 
 To run the server as a stdio MCP Server, use the following command:
@@ -54,7 +58,7 @@ To run the server as a HTTP MCP Server, use the following command:
 uvx github-research-mcp --mcp-transport streamable-http
 ```
 
-Note: To disable AI-powered analysis, set `DISABLE_SAMPLING=true`.
+Note: To disable AI-powered summarization, set `DISABLE_SUMMARIES=true`.
 
 ### Environment Variables
 
@@ -72,7 +76,7 @@ For clients that dont support sampling, you can provide an API key for either Go
   - `OPENAI_MODEL`: OpenAI model (e.g., `gpt-4o`) if using OpenAI
   - `OPENAI_BASE_URL`: Custom OpenAI API base URL (optional)
 - Control:
-  - `DISABLE_SAMPLING`: Set to `true` to disable AI summarization/research tools
+  - `DISABLE_SUMMARIES`: Set to `true` to disable AI summarization/research tools
 
 **Public Repository Features:**
 - `MINIMUM_STARS`: Minimum star count for repository summarization (default: 10)
@@ -84,18 +88,19 @@ The server provides multiple tool categories:
 
 **Repository Tools** (always available):
 - `get_files`: Browse repository file structure
-- `find_files`: Search for files by patterns
+- `find_file_paths`: Search for files paths by patterns (does not return file contents)
 - `search_files`: Advanced file search with filtering
 - `get_readmes`: Retrieve README files
 - `get_file_extensions`: Analyze file type distribution
 
 **Issue & Pull Request Tools** (always available):
-- `get_issue_or_pull_request`: Get detailed information about specific issues/PRs
-- `search_issues_or_pull_requests`: Search issues/PRs with advanced filtering
+- `get_issue`: Get detailed information about a specific issue
+- `get_pull_request`: Get detailed information about a specific pull request
+- `search_issues`: Search issues with keyword filtering
+- `search_pull_requests`: Search pull requests with keyword filtering
 
 **Sampling-Powered Tools** (requires Sampling or Sampling Fallback configuration):
-- `summarize`: Generate AI-powered repository summaries
-- `research_issue_or_pull_request`: AI-driven analysis of issues/PRs
+- `summarize_repository`: Generate AI-powered repository summaries
 
 ## MCP Client Configuration
 

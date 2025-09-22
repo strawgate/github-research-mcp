@@ -30,7 +30,8 @@ while ensuring all essential information is preserved:
 - If 3 items can be described in sentence form more densely than as bullet points, make them into a sentence.
  - Output style: Prefer “Category: items; items (qualifier).” Use colons to introduce specifics; semicolons to chain; parentheses
    for constraints.
- - Targets: 3-5 bullets per section; merge adjacent facts into compound bullets.
+ - Targets: 3-5 bullets per section; merge adjacent facts into compound bullets. Only use more than 5 bullets if each additional bullet
+    carries significant and unique information.
  - Dedupe: if a fact would repeat, cross-reference the earlier section and add only net-new info.
 
 ## Citations
@@ -98,56 +99,12 @@ LANGUAGE-SPECIFIC FILE RECOMMENDATIONS (choose relevant ones to meet the 30-file
 Your first round should focus on the high-signal files and searches with your second search focusing on identifying the
 remaining missing details.
 
-### File Request Syntax
-When working with deeply nested directories, you will often want to request many files:
-
-```json
-[
-    {
-        "path_prefix": "src/main/java/com/example",
-        "path_suffixes": ["file_1.java", "file_2.java"]
-    },
-    {
-        "path_prefix": "src/main/java/com/example/resources",
-        "path_suffixes": ["file_3.java"]
-    },
-    {
-        "path_prefix": "src/main/java/com/example/examples",
-        "path_suffixes": ["file_4.java",]
-    },
-    {
-        "path_prefix": "src/main/java/com/example/resources/lib",
-        "path_suffixes": ["file_5.java"]
-    }
-]
-```
-
-But this is now a giant JSON object! You will be strongly rewarded for minimizing the total size of the JSON you produce
-to build these objects. Think about how you can use the `path_prefix` and `path_suffixes` to minimize the total size of the
-JSON you produce.
-
-For example, we can pack the above request into this single object that is much smaller:
-```json
-{
-    "path_prefix": "src/main/java/com/example",
-    "path_suffixes": ["file_1.java", "file_2.java", "resources/file_3.java", "examples/file_4.java", "examples/resources/lib/file_5.java"]
-}
-```
-
-You will be strongly rewarded for minimizing the total size of the JSON you produce to build these objects. Think about how you
-can use the `path_prefix` and `path_suffixes` to minimize the total size of the JSON you produce!
-
 ## Performing Code Keyword Searches
-Searches are organized into 1 kind, Keywords.
-
-### Keyword Searches
 Keyword search works for all languages and non-code files like documentation and configuration files. Keyword searches
 allow you to search for specific words or phrases in the code and non-code files. All keywords must match exactly for an
 item to match and be returned in the search results. If multiple keywords are provided, they are combined with the AND operator.
 
-## Looking for files by name/path
-You can also look for files by their names/paths using the FindFilePathsRequest object. This is useful if the repository tree is
-limited to a specific depth.
+For this reason you should almost never use more than a couple related keywords in a single search.
 """
 
 OUTPUT_FORMAT = """
@@ -197,7 +154,7 @@ Unusual Conventions for Java projects:
 
 ## Key Directories & Entry Points
 You will outline the major directories and why they matter; identify app entry points with a brief “why this matters” and
-one citation when relevant. Do not list every directory—focus on high-signal areas.
+one citation when relevant. Do not list every directory -- focus on high-signal areas and unique directories.
 
 Example:
 ```markdown
@@ -245,6 +202,7 @@ Example:
   (e.g., `**/routes*`, `**/controllers/**`, `server.*`), OpenAPI/Swagger (`**/openapi*`, `**/swagger*`),
   GraphQL schema/resolvers (`**/*.graphql*`, `**/schema*`, `**/resolver*`), gRPC protos (`**/*.proto`), and
   CLI help commands.
+- Don't worry about listing specific endpoints, just broad high-level overview with where to learn more.
 
 ## Onboarding Steps
 - 3-6 bullets pointing to the most valuable follow-up actions/files for deeper onboarding.
@@ -252,10 +210,10 @@ Example:
   (e.g., required JVM arg, flaky test advice, platform-specific steps). Do not guess.
 
 ## Getting Unstuck
-This section is optional. In this section, you will provide a short list of 2-3 common gotchas that the Agent should
-be aware of that are directly from the documentation or comments in the code. You should keep this list short. If there is
-specific documentation in the repository that covers gotchas, make sure you point to it in this section so that the agent
-has a "next step" if it gets stuck.
+If there is specific documentation (a readme, a section of a readme, etc) in the repository that covers gotchas,
+make sure you point to it in this section so that the agent has a "next step" if it gets stuck.
+
+If there are big gotchas, provide them in a short list so that the agent is aware of them. Do not guess.
 
 NOTE: The above examples are not real examples, do not reference them and do not copy them. Use them as examples only to inform
 what you generate.

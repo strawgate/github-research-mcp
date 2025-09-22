@@ -15,6 +15,7 @@ from tests.conftest import (
     E2ERepositoryFiles,
     dump_call_tool_result_for_snapshot,
     dump_list_for_snapshot,
+    dump_structured_content_for_snapshot,
 )
 
 if TYPE_CHECKING:
@@ -61,7 +62,9 @@ async def test_list_tools(research_mcp_client: Client[FastMCPTransport]) -> None
                 "description": "Search for pull requests in a GitHub repository by the provided keywords.",
             },
             {"name": "get_files", "description": "Get the contents of files from a GitHub repository, optionally truncating the content."},
-            {"name": "find_file_paths", "description": "Find files in a GitHub repository by their names/paths."}, {'name':'search_code_by_keywords','description':'Search for code in a GitHub repository by the provided keywords.'}, {
+            {"name": "find_file_paths", "description": "Find files in a GitHub repository by their names/paths. Does not search file contents."},
+            {"name": "search_code_by_keywords", "description": "Search for code in a GitHub repository by the provided keywords."},
+            {
                 "name": "get_readmes",
                 "description": """\
 Retrieve any asciidoc (.adoc, .asciidoc), markdown (.md, .markdown), and other text files (.txt, .rst) in the repository.
@@ -119,23 +122,14 @@ async def test_get_issue(research_mcp_client: Client[FastMCPTransport], e2e_issu
         "get_issue",
         arguments={"owner": e2e_issue.owner, "repo": e2e_issue.repo, "issue_number": e2e_issue.issue_number},
     )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
+    assert dump_structured_content_for_snapshot(result) == snapshot(
         {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '{"issue":{"number":14,"url":"https://github.com/strawgate/github-issues-e2e-test/issues/14","title":"[FEATURE] Enhance `generate_philosophical_variable_name` with context","body":"## ✨ New Visions for the Digital Realm\\n\\n*\\"Every feature is a new path, a new possibility in the journey of code.\\"*\\n\\n### Describe the Feature\\nThe `generate_philosophical_variable_name` function in `src/utils.py` currently replaces keywords or adds a generic philosophical prefix. This is a good start, but it could be enhanced to consider the *context* of the variable\'s usage within the code.\\n\\nFor example, a variable named `count` in a loop might become `quantum_measurement_of_iteration`, while `count` in a database query might become `cosmic_tally_of_records`.\\n\\n### Why is this Feature Needed?\\nContext-aware philosophical naming would provide more relevant and profound insights, deepening the existential coding experience. It moves beyond simple keyword replacement to a more nuanced understanding of the variable\'s role.\\n\\n### Proposed Solution\\n- Modify `generate_philosophical_variable_name` to accept an additional `context` argument (e.g., the line of code where the variable is used, or the function it\'s within).\\n- Implement logic to analyze the context and choose a more appropriate philosophical mapping or prefix.\\n- This might involve simple regex matching for surrounding keywords (e.g., `for`, `while`, `db.query`).\\n\\n### Philosophical Reflection\\nTrue understanding comes not just from the word itself, but from its relationship to the surrounding text. By considering context, we move closer to a holistic understanding of the code\'s essence, reflecting the interconnectedness of all things in the digital realm.\\n\\n---\\n\\n*Remember: Every feature is a step towards a more enlightened digital future. Embrace the creation, and the wisdom will follow.*","state":"OPEN","state_reason":null,"is_pr":false,"author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-13T18:11:09+00:00","updated_at":"2025-09-13T18:11:09+00:00","closed_at":null,"labels":[],"assignees":[],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[],"related":[]}',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "result": {
-                    "issue": {
-                        "number": 14,
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/issues/14",
-                        "title": "[FEATURE] Enhance `generate_philosophical_variable_name` with context",
-                        "body": """\
+            "result": {
+                "issue": {
+                    "number": 14,
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/14",
+                    "title": "[FEATURE] Enhance `generate_philosophical_variable_name` with context",
+                    "body": """\
 ## ✨ New Visions for the Digital Realm
 
 *"Every feature is a new path, a new possibility in the journey of code."*
@@ -160,23 +154,22 @@ True understanding comes not just from the word itself, but from its relationshi
 
 *Remember: Every feature is a step towards a more enlightened digital future. Embrace the creation, and the wisdom will follow.*\
 """,
-                        "state": "OPEN",
-                        "state_reason": None,
-                        "is_pr": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-13T18:11:09+00:00",
-                        "updated_at": "2025-09-13T18:11:09+00:00",
-                        "closed_at": None,
-                        "labels": [],
-                        "assignees": [],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
-                    "comments": [],
-                    "related": [],
-                }
-            },
+                    "state": "OPEN",
+                    "state_reason": None,
+                    "is_pr": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "author_association": "OWNER",
+                    "created_at": "2025-09-13T18:11:09+00:00",
+                    "updated_at": "2025-09-13T18:11:09+00:00",
+                    "closed_at": None,
+                    "labels": [],
+                    "assignees": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
+                },
+                "comments": [],
+                "related": [],
+            }
         }
     )
 
@@ -190,59 +183,64 @@ async def test_get_pull_request(research_mcp_client: Client[FastMCPTransport], e
             "pull_request_number": e2e_pull_request.pull_request_number,
         },
     )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
+    assert dump_structured_content_for_snapshot(result) == snapshot(
         {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '{"pull_request":{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2","number":2,"title":"this is a test pull request","body":"it has a description\\r\\n\\r\\nit has a related issue #1","state":"OPEN","is_pr":true,"merged":false,"author":{"user_type":"User","login":"strawgate"},"created_at":"2025-09-05T23:04:07+00:00","updated_at":"2025-09-05T23:04:24+00:00","closed_at":null,"merged_at":null,"merge_commit":null,"labels":[{"name":"bug"}],"assignees":[{"user_type":"User","login":"strawgate"}],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958","body":"it also has a comment","author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-05T23:04:24+00:00","updated_at":"2025-09-05T23:04:24+00:00","owner":"strawgate","repository":"github-issues-e2e-test","issue_number":2,"comment_id":3259982958}],"related":[]}',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "result": {
-                    "pull_request": {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                        "number": 2,
-                        "title": "this is a test pull request",
-                        "body": """\
+            "result": {
+                "pull_request": {
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                    "number": 2,
+                    "title": "this is a test pull request",
+                    "body": """\
 it has a description\r
 \r
 it has a related issue #1\
 """,
-                        "state": "OPEN",
-                        "is_pr": True,
-                        "merged": False,
+                    "state": "OPEN",
+                    "is_pr": True,
+                    "merged": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "created_at": "2025-09-05T23:04:07+00:00",
+                    "updated_at": "2025-09-05T23:04:24+00:00",
+                    "closed_at": None,
+                    "merged_at": None,
+                    "merge_commit": None,
+                    "labels": [{"name": "bug"}],
+                    "assignees": [{"user_type": "User", "login": "strawgate"}],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
+                },
+                "comments": [
+                    {
+                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
+                        "body": "it also has a comment",
                         "author": {"user_type": "User", "login": "strawgate"},
-                        "created_at": "2025-09-05T23:04:07+00:00",
+                        "author_association": "OWNER",
+                        "created_at": "2025-09-05T23:04:24+00:00",
                         "updated_at": "2025-09-05T23:04:24+00:00",
-                        "closed_at": None,
-                        "merged_at": None,
-                        "merge_commit": None,
-                        "labels": [{"name": "bug"}],
-                        "assignees": [{"user_type": "User", "login": "strawgate"}],
                         "owner": "strawgate",
                         "repository": "github-issues-e2e-test",
-                    },
-                    "comments": [
-                        {
-                            "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
-                            "body": "it also has a comment",
-                            "author": {"user_type": "User", "login": "strawgate"},
-                            "author_association": "OWNER",
-                            "created_at": "2025-09-05T23:04:24+00:00",
-                            "updated_at": "2025-09-05T23:04:24+00:00",
-                            "owner": "strawgate",
-                            "repository": "github-issues-e2e-test",
-                            "issue_number": 2,
-                            "comment_id": 3259982958,
-                        }
-                    ],
-                    "related": [],
-                }
-            },
+                        "issue_number": 2,
+                        "comment_id": 3259982958,
+                    }
+                ],
+                "related": [],
+            }
         }
+    )
+
+
+async def test_find_file_paths(research_mcp_client: Client[FastMCPTransport], e2e_repository: E2ERepository) -> None:
+    result: CallToolResult = await research_mcp_client.call_tool(
+        "find_file_paths",
+        arguments={
+            "owner": e2e_repository.owner,
+            "repo": e2e_repository.repo,
+            "include_patterns": ["*README.md", "*CONTRIBUTORS.md"],
+            "exclude_patterns": ["*.txt"],
+        },
+    )
+    assert dump_structured_content_for_snapshot(result) == snapshot(
+        {"directories": [], "files": ["CONTRIBUTORS.md","README.md"], "truncated": False}
     )
 
 
@@ -262,7 +260,7 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
             "content": [
                 {
                     "type": "text",
-                    "text": '[{"path":"README.md","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":""},"truncated":false},{"path":"CONTRIBUTORS.md","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":""},"truncated":false}]',
+                    "text": '[{"path":"README.md","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":""},"total_lines":75,"truncated":false},{"path":"CONTRIBUTORS.md","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":""},"total_lines":37,"truncated":false}]',
                     "annotations": None,
                     "meta": None,
                 }
@@ -271,8 +269,7 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
                 "result": [
                     {
                         "path": "README.md",
-                        "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""},
-                        "truncated": False,
+                        "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""}, "total_lines": 75, "truncated": False,
                     },
                     {
                         "path": "CONTRIBUTORS.md",
@@ -283,8 +280,7 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
                             "4": "",
                             "5": "## Core Team",
                             "6": "",
-                        },
-                        "truncated": False,
+                        }, "total_lines": 37, "truncated": False,
                     },
                 ]
             },
@@ -297,84 +293,70 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
         "get_readmes",
         arguments={"owner": e2e_repository.owner, "repo": e2e_repository.repo, "truncate_lines": 10},
     )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
+    assert dump_structured_content_for_snapshot(result) == snapshot(
         {
-            "content": [
+            "result": [
                 {
-                    "type": "text",
-                    "text": '[{"path":"AGENTS.md","content":{"1":"# G.I.T.H.U.B. AI Agents Documentation","2":"","3":"*\\"In the digital realm, we are not alone. Our code is watched over by digital spirits of wisdom and contemplation.\\"*","4":"","5":"This document describes the existential AI agents and automated systems that guide your coding journey in G.I.T.H.U.B.","6":"","7":"## Agent Overview","8":"","9":"### The Philosopher Agent","10":"- **Purpose**: Existential code analysis and philosophical guidance"},"truncated":false},{"path":"CONTRIBUTING.md","content":{"1":"# Contributing to G.I.T.H.U.B. - The Existential Code Companion","2":"","3":"*\\"Every contribution is a step on the path of digital enlightenment. Welcome, fellow seeker of code wisdom.\\"*","4":"","5":"Thank you for your interest in contributing to G.I.T.H.U.B.! This document provides guidelines for those brave souls who wish to join us on this journey of existential coding.","6":"","7":"## Getting Started","8":"","9":"### Prerequisites","10":"- Python 3.13 or higher"},"truncated":false},{"path":"CONTRIBUTORS.md","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":"","7":"- **Test User** - *Project Lead* - [@testuser](https://github.com/testuser)","8":"- **Jane Developer** - *Core Developer* - [@janedev](https://github.com/janedev)","9":"- **Bob Maintainer** - *Maintainer* - [@bobmaintainer](https://github.com/bobmaintainer)","10":""},"truncated":false},{"path":"README.md","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":"","3":"**Generally Introspective Text Handler for Unrealized Brilliance**","4":"","5":"An AI-powered code editor extension that doesn\'t just check for syntax errors, but also prompts you with philosophical questions about your code\'s purpose and your life choices as a developer.","6":"","7":"## What is G.I.T.H.U.B.?","8":"","9":"G.I.T.H.U.B. is more than just another code linter. It\'s your existential coding companion that asks the deep questions:","10":""},"truncated":false}]',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "result": [
-                    {
-                        "path": "AGENTS.md",
-                        "content": {
-                            "1": "# G.I.T.H.U.B. AI Agents Documentation",
-                            "2": "",
-                            "3": '*"In the digital realm, we are not alone. Our code is watched over by digital spirits of wisdom and contemplation."*',
-                            "4": "",
-                            "5": "This document describes the existential AI agents and automated systems that guide your coding journey in G.I.T.H.U.B.",
-                            "6": "",
-                            "7": "## Agent Overview",
-                            "8": "",
-                            "9": "### The Philosopher Agent",
-                            "10": "- **Purpose**: Existential code analysis and philosophical guidance",
-                        },
-                        "truncated": False,
-                    },
-                    {
-                        "path": "CONTRIBUTING.md",
-                        "content": {
-                            "1": "# Contributing to G.I.T.H.U.B. - The Existential Code Companion",
-                            "2": "",
-                            "3": '*"Every contribution is a step on the path of digital enlightenment. Welcome, fellow seeker of code wisdom."*',
-                            "4": "",
-                            "5": "Thank you for your interest in contributing to G.I.T.H.U.B.! This document provides guidelines for those brave souls who wish to join us on this journey of existential coding.",
-                            "6": "",
-                            "7": "## Getting Started",
-                            "8": "",
-                            "9": "### Prerequisites",
-                            "10": "- Python 3.13 or higher",
-                        },
-                        "truncated": False,
-                    },
-                    {
-                        "path": "CONTRIBUTORS.md",
-                        "content": {
-                            "1": "# Contributors",
-                            "2": "",
-                            "3": "This project exists thanks to all the people who contribute.",
-                            "4": "",
-                            "5": "## Core Team",
-                            "6": "",
-                            "7": "- **Test User** - *Project Lead* - [@testuser](https://github.com/testuser)",
-                            "8": "- **Jane Developer** - *Core Developer* - [@janedev](https://github.com/janedev)",
-                            "9": "- **Bob Maintainer** - *Maintainer* - [@bobmaintainer](https://github.com/bobmaintainer)",
-                            "10": "",
-                        },
-                        "truncated": False,
-                    },
-                    {
-                        "path": "README.md",
-                        "content": {
-                            "1": "# G.I.T.H.U.B. - The Existential Code Companion",
-                            "2": "",
-                            "3": "**Generally Introspective Text Handler for Unrealized Brilliance**",
-                            "4": "",
-                            "5": "An AI-powered code editor extension that doesn't just check for syntax errors, but also prompts you with philosophical questions about your code's purpose and your life choices as a developer.",
-                            "6": "",
-                            "7": "## What is G.I.T.H.U.B.?",
-                            "8": "",
-                            "9": "G.I.T.H.U.B. is more than just another code linter. It's your existential coding companion that asks the deep questions:",
-                            "10": "",
-                        },
-                        "truncated": False,
-                    },
-                ]
-            },
+                    "path": "AGENTS.md",
+                    "content": {
+                        "1": "# G.I.T.H.U.B. AI Agents Documentation",
+                        "2": "",
+                        "3": '*"In the digital realm, we are not alone. Our code is watched over by digital spirits of wisdom and contemplation."*',
+                        "4": "",
+                        "5": "This document describes the existential AI agents and automated systems that guide your coding journey in G.I.T.H.U.B.",
+                        "6": "",
+                        "7": "## Agent Overview",
+                        "8": "",
+                        "9": "### The Philosopher Agent",
+                        "10": "- **Purpose**: Existential code analysis and philosophical guidance",
+                    }, "total_lines": 88, "truncated": False,
+                },
+                {
+                    "path": "CONTRIBUTING.md",
+                    "content": {
+                        "1": "# Contributing to G.I.T.H.U.B. - The Existential Code Companion",
+                        "2": "",
+                        "3": '*"Every contribution is a step on the path of digital enlightenment. Welcome, fellow seeker of code wisdom."*',
+                        "4": "",
+                        "5": "Thank you for your interest in contributing to G.I.T.H.U.B.! This document provides guidelines for those brave souls who wish to join us on this journey of existential coding.",
+                        "6": "",
+                        "7": "## Getting Started",
+                        "8": "",
+                        "9": "### Prerequisites",
+                        "10": "- Python 3.13 or higher",
+                    }, "total_lines": 105, "truncated": False,
+                },
+                {
+                    "path": "CONTRIBUTORS.md",
+                    "content": {
+                        "1": "# Contributors",
+                        "2": "",
+                        "3": "This project exists thanks to all the people who contribute.",
+                        "4": "",
+                        "5": "## Core Team",
+                        "6": "",
+                        "7": "- **Test User** - *Project Lead* - [@testuser](https://github.com/testuser)",
+                        "8": "- **Jane Developer** - *Core Developer* - [@janedev](https://github.com/janedev)",
+                        "9": "- **Bob Maintainer** - *Maintainer* - [@bobmaintainer](https://github.com/bobmaintainer)",
+                        "10": "",
+                    }, "total_lines": 37, "truncated": False,
+                },
+                {
+                    "path": "README.md",
+                    "content": {
+                        "1": "# G.I.T.H.U.B. - The Existential Code Companion",
+                        "2": "",
+                        "3": "**Generally Introspective Text Handler for Unrealized Brilliance**",
+                        "4": "",
+                        "5": "An AI-powered code editor extension that doesn't just check for syntax errors, but also prompts you with philosophical questions about your code's purpose and your life choices as a developer.",
+                        "6": "",
+                        "7": "## What is G.I.T.H.U.B.?",
+                        "8": "",
+                        "9": "G.I.T.H.U.B. is more than just another code linter. It's your existential coding companion that asks the deep questions:",
+                        "10": "",
+                    }, "total_lines": 75, "truncated": False,
+                },
+            ]
         }
     )
 
@@ -384,26 +366,16 @@ async def test_get_file_extension_statistics(research_mcp_client: Client[FastMCP
         "get_file_extension_statistics",
         arguments={"owner": e2e_repository.owner, "repo": e2e_repository.repo},
     )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
+    assert dump_structured_content_for_snapshot(result) == snapshot(
         {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '[{"extension":"py","count":10},{"extension":"md","count":9},{"extension":"gitignore","count":1},{"extension":"python-version","count":1},{"extension":"ini","count":1},{"extension":"toml","count":1}]',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "result": [
-                    {"extension": "py", "count": 10},
-                    {"extension": "md", "count": 9},
-                    {"extension": "gitignore", "count": 1},
-                    {"extension": "python-version", "count": 1},
-                    {"extension": "ini", "count": 1},
-                    {"extension": "toml", "count": 1},
-                ]
-            },
+            "result": [
+                {"extension": "py", "count": 10},
+                {"extension": "md", "count": 9},
+                {"extension": "gitignore", "count": 1},
+                {"extension": "python-version", "count": 1},
+                {"extension": "ini", "count": 1},
+                {"extension": "toml", "count": 1},
+            ]
         }
     )
 
@@ -413,32 +385,8 @@ async def test_search_issues(research_mcp_client: Client[FastMCPTransport], e2e_
         "search_issues",
         arguments={"owner": e2e_repository.owner, "repo": e2e_repository.repo, "keywords": ["philosophy"]},
     )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
-        {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '{"issue_search_query":{"qualifiers":[{"issue_or_pull_request":"issue"},{"owner":"strawgate","repo":"github-issues-e2e-test"},{"keywords":["philosophy"]}],"advanced":null},"issues":[{"issue":{"number":6,"url":"https://github.com/strawgate/github-issues-e2e-test/issues/6","title":"[ENLIGHTENMENT] The Illusion of Perfect Code","body":"## 🧘 Your Digital Enlightenment Journey\\n\\n*\\"Every developer\'s journey is unique, but the destination is the same: understanding.\\"*\\n\\n### Your Journey\\nI often find myself striving for perfect code, spending hours on minor optimizations or refactoring that yields little practical benefit.\\n\\n### Key Insights\\nI\'ve realized that \'perfect\' is a subjective and often unattainable goal in software development.\\n\\n### Current State\\nMy pursuit of perfection sometimes hinders progress and leads to burnout. The Zen Master\'s wisdom on \'Perfect code is an illusion; beautiful code is reality\' resonates deeply.\\n\\n### Future Aspirations\\nI aim to embrace the philosophy of \'beautiful code\' over \'perfect code\', focusing on maintainability, readability, and functionality while accepting inherent imperfections.\\n\\n### Advice for Others\\nHow do others balance the desire for perfection with the need for progress? What practices help in letting go of the pursuit of an unattainable ideal?\\n\\n---\\n\\n*Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*","state":"OPEN","state_reason":null,"is_pr":false,"author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-13T18:10:37+00:00","updated_at":"2025-09-13T18:10:37+00:00","closed_at":null,"labels":[],"assignees":[],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[],"related":[]}]}',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "issue_search_query": {
-                    "qualifiers": [
-                        {"issue_or_pull_request": "issue"},
-                        {"owner": "strawgate", "repo": "github-issues-e2e-test"},
-                        {"keywords": ["philosophy"]},
-                    ],
-                    "advanced": None,
-                },
-                "issues": [
-                    {
-                        "issue": {
-                            "number": 6,
-                            "url": "https://github.com/strawgate/github-issues-e2e-test/issues/6",
-                            "title": "[ENLIGHTENMENT] The Illusion of Perfect Code",
-                            "body": """\
+    assert dump_structured_content_for_snapshot(result) == snapshot(
+        {"result": [{"issue":{"number":6 ,"url":"https://github.com/strawgate/github-issues-e2e-test/issues/6","title":"[ENLIGHTENMENT] The Illusion of Perfect Code","body":"""\
 ## 🧘 Your Digital Enlightenment Journey
 
 *"Every developer's journey is unique, but the destination is the same: understanding."*
@@ -461,26 +409,7 @@ How do others balance the desire for perfection with the need for progress? What
 ---
 
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
-""",
-                            "state": "OPEN",
-                            "state_reason": None,
-                            "is_pr": False,
-                            "author": {"user_type": "User", "login": "strawgate"},
-                            "author_association": "OWNER",
-                            "created_at": "2025-09-13T18:10:37+00:00",
-                            "updated_at": "2025-09-13T18:10:37+00:00",
-                            "closed_at": None,
-                            "labels": [],
-                            "assignees": [],
-                            "owner": "strawgate",
-                            "repository": "github-issues-e2e-test",
-                        },
-                        "comments": [],
-                        "related": [],
-                    }
-                ],
-            },
-        }
+""","state":"OPEN","state_reason":None ,"is_pr":False ,"author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-13T18:10:37+00:00","updated_at":"2025-09-13T18:10:37+00:00","closed_at":None ,"labels":[],"assignees":[],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[],"related":[]}]}
     )
 
 
@@ -489,67 +418,10 @@ async def test_search_pull_requests(research_mcp_client: Client[FastMCPTransport
         "search_pull_requests",
         arguments={"owner": e2e_repository.owner, "repo": e2e_repository.repo, "keywords": ["test"]},
     )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
-        {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '{"pull_request_search_query":{"qualifiers":[{"issue_or_pull_request":"pull_request"},{"owner":"strawgate","repo":"github-issues-e2e-test"},{"keywords":["test"]}],"advanced":null},"pull_requests":[{"pull_request":{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2","number":2,"title":"this is a test pull request","body":"it has a description\\r\\n\\r\\nit has a related issue #1","state":"OPEN","is_pr":true,"merged":false,"author":{"user_type":"User","login":"strawgate"},"created_at":"2025-09-05T23:04:07+00:00","updated_at":"2025-09-05T23:04:24+00:00","closed_at":null,"merged_at":null,"merge_commit":null,"labels":[{"name":"bug"}],"assignees":[{"user_type":"User","login":"strawgate"}],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958","body":"it also has a comment","author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-05T23:04:24+00:00","updated_at":"2025-09-05T23:04:24+00:00","owner":"strawgate","repository":"github-issues-e2e-test","issue_number":2,"comment_id":3259982958}],"related":[]}]}',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "pull_request_search_query": {
-                    "qualifiers": [
-                        {"issue_or_pull_request": "pull_request"},
-                        {"owner": "strawgate", "repo": "github-issues-e2e-test"},
-                        {"keywords": ["test"]},
-                    ],
-                    "advanced": None,
-                },
-                "pull_requests": [
-                    {
-                        "pull_request": {
-                            "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                            "number": 2,
-                            "title": "this is a test pull request",
-                            "body": """\
+    assert dump_structured_content_for_snapshot(result) == snapshot(
+        {"result": [{"pull_request":{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2","number":2 ,"title":"this is a test pull request","body":"""\
 it has a description\r
 \r
 it has a related issue #1\
-""",
-                            "state": "OPEN",
-                            "is_pr": True,
-                            "merged": False,
-                            "author": {"user_type": "User", "login": "strawgate"},
-                            "created_at": "2025-09-05T23:04:07+00:00",
-                            "updated_at": "2025-09-05T23:04:24+00:00",
-                            "closed_at": None,
-                            "merged_at": None,
-                            "merge_commit": None,
-                            "labels": [{"name": "bug"}],
-                            "assignees": [{"user_type": "User", "login": "strawgate"}],
-                            "owner": "strawgate",
-                            "repository": "github-issues-e2e-test",
-                        },
-                        "comments": [
-                            {
-                                "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
-                                "body": "it also has a comment",
-                                "author": {"user_type": "User", "login": "strawgate"},
-                                "author_association": "OWNER",
-                                "created_at": "2025-09-05T23:04:24+00:00",
-                                "updated_at": "2025-09-05T23:04:24+00:00",
-                                "owner": "strawgate",
-                                "repository": "github-issues-e2e-test",
-                                "issue_number": 2,
-                                "comment_id": 3259982958,
-                            }
-                        ],
-                        "related": [],
-                    }
-                ],
-            },
-        }
+""","state":"OPEN","is_pr":True ,"merged":False ,"author":{"user_type":"User","login":"strawgate"},"created_at":"2025-09-05T23:04:07+00:00","updated_at":"2025-09-05T23:04:24+00:00","closed_at":None ,"merged_at":None ,"merge_commit":None ,"labels":[{"name":"bug"}],"assignees":[{"user_type":"User","login":"strawgate"}],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958","body":"it also has a comment","author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-05T23:04:24+00:00","updated_at":"2025-09-05T23:04:24+00:00","owner":"strawgate","repository":"github-issues-e2e-test","issue_number":2 ,"comment_id":3259982958 }],"related":[]}]}
     )

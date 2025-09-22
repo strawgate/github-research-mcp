@@ -1,19 +1,51 @@
+import asyncio
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Literal, overload
+from logging import Logger
+from typing import TYPE_CHECKING, Any, Literal
 
+import yaml
+from fastmcp.client import Client
+from fastmcp.client.client import CallToolResult
 from fastmcp.server.dependencies import get_context
 from fastmcp.utilities.logging import get_logger
-from mcp.types import AudioContent, ContentBlock, ImageContent, ModelPreferences, SamplingMessage, TextContent
-from pydantic import BaseModel
+from mcp.types import (
+    AudioContent,
+    ClientCapabilities,
+    ContentBlock,
+    ImageContent,
+    ModelPreferences,
+    SamplingCapability,
+    SamplingMessage,
+    TextContent,
+    Tool,
+)
+from pydantic import BaseModel, Field
 from pydantic_core import ValidationError
 
-from github_research_mcp.sampling.extract import extract_single_object_from_text, object_in_text_instructions
+from github_research_mcp.sampling.extract import (
+    ALLOWED_STRUCTURAL_SAMPLING_TYPES,
+    extract_single_object_from_text,
+    object_in_text_instructions,
+)
 from github_research_mcp.servers.shared.utility import estimate_model_tokens
 
 if TYPE_CHECKING:
     from fastmcp.server import Context
 
 logger = get_logger(__name__)
+
+YAML_DUMP_DEFAULTS = {
+    "indent": 1,
+    "sort_keys": False,
+    "width": 400,
+}
+
+
+def dump_yaml(value: Any | list[Any]) -> str:
+    if isinstance(value, list):
+        return "\n".join([yaml.safe_dump(item, **YAML_DUMP_DEFAULTS) for item in value])
+
+    return yaml.safe_dump(value, **YAML_DUMP_DEFAULTS)
 
 
 def get_sampling_tokens(system_prompt: str, messages: Sequence[SamplingMessage]) -> int:
@@ -39,32 +71,57 @@ def new_user_sampling_message(content: str | list[str]) -> SamplingMessage:
     return new_sampling_message("user", content)
 
 
-@overload
-async def structured_sample[T: BaseModel](
+class SamplingSupportRequiredError(Exception):
+    """A sampling support required error from the GitHub Research sampling utility."""
+
+    def __init__(self):
+        super().__init__("Your client does not support sampling. Sampling support is required to use the summarization tools.")
+
+
+class StructuredSamplingValidationError(Exception):
+    """A structured sampling validation error from the GitHub Research sampling utility."""
+
+    def __init__(self, message: str):
+        super().__init__(message)
+
+
+async def sample(
     system_prompt: str,
     messages: Sequence[SamplingMessage],
     *,
     max_tokens: int = 2000,
     temperature: float = 0.0,
     model_preferences: ModelPreferences | None = None,
-    response_model: None,
-) -> tuple[ContentBlock, SamplingMessage]: ...
+) -> tuple[str, SamplingMessage]:
+    """Sample a response from the server.
+
+    Provides the text response as well as the Assistant SamplingMessage for continuing the conversation.
+    """
+
+    context: Context = get_context()
+
+    logger.info(f"Sampling with prompt that is {get_sampling_tokens(system_prompt, messages)} tokens.")
+
+    sampling_response: TextContent | ImageContent | AudioContent = await context.sample(  # pyright: ignore[reportAssignmentType]
+        system_prompt=system_prompt,
+        messages=[*messages],
+        temperature=temperature,
+        max_tokens=max_tokens,
+        model_preferences=model_preferences,
+    )
+
+    if not isinstance(sampling_response, TextContent):
+        msg = "The sampling call failed to generate a valid text response."
+        raise TypeError(msg)
+
+    logger.info(f"Sampling response was {len(sampling_response.text) // 4} tokens.")
+
+    assistant_message: SamplingMessage = SamplingMessage(role="assistant", content=sampling_response)
+
+    return sampling_response.text, assistant_message
 
 
-@overload
-async def structured_sample[T: BaseModel](
-    system_prompt: str,
-    messages: Sequence[SamplingMessage],
-    *,
-    max_tokens: int = 2000,
-    temperature: float = 0.0,
-    model_preferences: ModelPreferences | None = None,
-    response_model: type[str],
-) -> tuple[str, SamplingMessage]: ...
-
-
-@overload
-async def structured_sample[T: BaseModel](
+async def structured_sample[T: ALLOWED_STRUCTURAL_SAMPLING_TYPES](
     system_prompt: str,
     messages: Sequence[SamplingMessage],
     *,
@@ -72,18 +129,8 @@ async def structured_sample[T: BaseModel](
     temperature: float = 0.0,
     model_preferences: ModelPreferences | None = None,
     response_model: type[T],
-) -> tuple[T, SamplingMessage]: ...
-
-
-async def structured_sample[T: BaseModel](
-    system_prompt: str,
-    messages: Sequence[SamplingMessage],
-    *,
-    max_tokens: int = 2000,
-    temperature: float = 0.0,
-    model_preferences: ModelPreferences | None = None,
-    response_model: type[str | T] | None = None,
-) -> tuple[ContentBlock | str | T, SamplingMessage]:
+    retries: int = 3,
+) -> tuple[T, SamplingMessage]:
     """Sample a response from the server. Optionally produce a structured response.
     Provides an Assistant SamplingMessage as well as the response for continuing the conversation.
 
@@ -96,46 +143,209 @@ async def structured_sample[T: BaseModel](
         response_model: The response model to use for the sampling.
 
     Returns:
-        A ContentBlock if response_model is None,
-            a tuple of a string and a SamplingMessage if response_model is str, or
-            a tuple of a BaseModel and a SamplingMessage if response_model is a BaseModel.
+        A tuple of a BaseModel and a SamplingMessage.
     """
+
+    json_schema_instructions: SamplingMessage = new_user_sampling_message(
+        content=object_in_text_instructions(object_type=response_model, require=True)
+    )
+
+    extra_messages: list[SamplingMessage] = [json_schema_instructions]
+
+    for retry in range(retries):
+        response, assistant_message = await sample(
+            system_prompt=system_prompt,
+            messages=[*messages, *extra_messages],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_preferences=model_preferences,
+        )
+
+        try:
+            return extract_single_object_from_text(response, object_type=response_model), assistant_message
+        except ValidationError as e:
+            msg = (
+                f"The sampling call failed to generate a valid structured response (retry {retry + 1} of {retries}). Please try again: {e}"
+            )
+            logger.warning(msg)
+
+            extra_messages.extend([assistant_message, new_user_sampling_message(content=msg)])
+
+    raise StructuredSamplingValidationError(
+        message=f"The sampling call failed to generate a valid structured response in {retries} retries."
+    )
+
+
+class SamplingToolCallRequest(BaseModel):
+    """A request to call a tool."""
+
+    tool_call_id: str = Field(description="The ID of the tool call. Can be anything as long as it is unique.")
+    tool_name: str = Field(description="The name of the tool to call.")
+    arguments: dict[str, Any] = Field(description="The arguments to pass to the tool.")
+
+    async def execute(self, client: Client, logger: Logger | None = None) -> "SamplingToolCallResult":
+        logger = logger or get_logger(__name__)
+
+        logger.info(f"Calling tool {self.tool_name}: id:{self.tool_call_id} with arguments {self.arguments}.")
+
+        call_tool_result: CallToolResult = await client.call_tool(
+            name=self.tool_name,
+            arguments=self.arguments,
+        )
+
+        sampling_tool_call_result: SamplingToolCallResult = SamplingToolCallResult.from_call_tool_result(
+            sampling_tool_call_request=self, call_tool_result=call_tool_result
+        )
+
+        logger.info(f"Tool {self.tool_name}: id:{self.tool_call_id} returned {sampling_tool_call_result.result_tokens()} tokens.")
+
+        return sampling_tool_call_result
+
+
+class MultipleSamplingToolCallsRequests(BaseModel):
+    """A request for a batch of tool calls."""
+
+    tool_calls: list[SamplingToolCallRequest]
+
+
+class SamplingToolCallResult(SamplingToolCallRequest):
+    result: list[ContentBlock] | dict[str, Any] | Any
+
+    @classmethod
+    def from_call_tool_result(
+        cls, sampling_tool_call_request: SamplingToolCallRequest, call_tool_result: CallToolResult
+    ) -> "SamplingToolCallResult":
+        result: list[ContentBlock] | dict[str, Any] = call_tool_result.content
+
+        if call_tool_result.structured_content:
+            result = call_tool_result.structured_content
+
+            if "result" in result:
+                result = result["result"]
+
+        return cls(
+            tool_call_id=sampling_tool_call_request.tool_call_id,
+            tool_name=sampling_tool_call_request.tool_name,
+            arguments=sampling_tool_call_request.arguments,
+            result=result,
+        )
+
+    def to_markdown(self) -> str:
+        results_text: str = dump_yaml(self.result)
+        return f"""# Tool Call `{self.tool_name}`: id:{self.tool_call_id}
+## Results
+``````yaml
+{results_text}
+``````
+"""
+
+    def to_sampling_message(self) -> SamplingMessage:
+        return SamplingMessage(role="user", content=TextContent(type="text", text=self.to_markdown()))
+
+    def result_tokens(self) -> int:
+        return len(self.to_markdown()) // 4
+
+
+def format_tool_schemas(tools: list[Tool]) -> str:
+    return "\n".join([tool.model_dump_json(indent=1, exclude={"outputSchema", "meta", "annotations", "title"}) for tool in tools])
+
+
+async def tool_calling_sample(
+    system_prompt: str,
+    client: Client,
+    messages: Sequence[SamplingMessage],
+    *,
+    max_tokens: int = 2000,
+    temperature: float = 0.0,
+    model_preferences: ModelPreferences | None = None,
+    max_tool_calls: int = 5,
+    parallel_tool_calls: bool = False,
+) -> tuple[SamplingMessage, list[SamplingMessage]]:
+    """Sample a response from the server."""
+
+    async with client as connected_client:
+        tools: list[Tool] = await connected_client.list_tools()
+
+        tool_instructions_text: str = f"""
+The following tools are available to call:
+``````json
+{format_tool_schemas(tools)}
+``````
+
+You may now call up to {max_tool_calls} tools.
+"""
+
+        tool_instructions: SamplingMessage = new_user_sampling_message(content=tool_instructions_text)
+
+        tool_calls_request, assistant_message = await structured_sample(
+            system_prompt=system_prompt,
+            messages=[*messages, tool_instructions],
+            temperature=temperature,
+            max_tokens=max_tokens,
+            model_preferences=model_preferences,
+            response_model=MultipleSamplingToolCallsRequests,
+        )
+
+        logger.info(f"Sampling demands {len(tool_calls_request.tool_calls)} tool calls.")
+
+        tool_calls: list[SamplingToolCallRequest] = tool_calls_request.tool_calls[:max_tool_calls]
+
+        tool_calls_results: list[SamplingToolCallResult] = []
+
+        if parallel_tool_calls:
+            tool_calls_results = await asyncio.gather(
+                *[tool_call.execute(client=connected_client, logger=logger) for tool_call in tool_calls]
+            )
+        else:
+            tool_calls_results = [await tool_call.execute(client=connected_client, logger=logger) for tool_call in tool_calls]
+
+        return assistant_message, [result.to_sampling_message() for result in tool_calls_results]
+
+
+async def multi_turn_tool_calling_sample(
+    system_prompt: str,
+    client: Client,
+    messages: Sequence[SamplingMessage],
+    *,
+    max_tokens: int = 2000,
+    temperature: float = 0.0,
+    model_preferences: ModelPreferences | None = None,
+    max_tool_calls: int = 5,
+    max_turns: int = 5,
+    parallel_tool_calls: bool = False,
+) -> list[SamplingMessage]:
+    """Sample a response from the server."""
+
+    all_messages: list[SamplingMessage] = [*messages]
+    new_messages: list[SamplingMessage] = []
+
+    for _ in range(max_turns):
+        assistant_message, tool_messages = await tool_calling_sample(
+            system_prompt=system_prompt,
+            messages=all_messages,
+            max_tokens=max_tokens,
+            temperature=temperature,
+            model_preferences=model_preferences,
+            max_tool_calls=max_tool_calls,
+            client=client,
+            parallel_tool_calls=parallel_tool_calls,
+        )
+
+        new_messages.extend([assistant_message, *tool_messages])
+        all_messages.extend(new_messages)
+
+    return new_messages
+
+
+def sampling_is_supported() -> bool:
+    """Check if the client supports sampling."""
 
     context: Context = get_context()
 
-    logger.info(f"Sampling with prompt that is {get_sampling_tokens(system_prompt, messages)} tokens.")
+    if context.fastmcp.sampling_handler is not None:
+        return True
 
-    extra_messages: list[SamplingMessage] = []
+    if context.session.check_client_capability(capability=ClientCapabilities(sampling=SamplingCapability())):  # noqa: SIM103
+        return True
 
-    if response_model and issubclass(response_model, BaseModel):
-        extra_messages.append(new_user_sampling_message(content=object_in_text_instructions(object_type=response_model, require=True)))
-
-    sampling_response: TextContent | ImageContent | AudioContent = await context.sample(  # pyright: ignore[reportAssignmentType]
-        system_prompt=system_prompt,
-        messages=[*messages, *extra_messages],
-        temperature=temperature,
-        max_tokens=max_tokens,
-        model_preferences=model_preferences,
-    )
-
-    assistant_message: SamplingMessage = SamplingMessage(role="assistant", content=sampling_response)
-
-    # Response Model is None, return a single ContentBlock
-    if response_model is None:
-        return sampling_response, assistant_message
-
-    if not isinstance(sampling_response, TextContent):
-        msg = "The sampling call failed to generate a valid text summary of the issue."
-        raise TypeError(msg)
-
-    # Response Model is str, return the text from the TextContent and the ContentBlock
-    if issubclass(response_model, str):
-        return sampling_response.text, assistant_message
-
-    # Response Model is a BaseModel, coerce the response to the model
-    try:
-        return extract_single_object_from_text(sampling_response.text, object_type=response_model), assistant_message
-    except ValidationError as e:
-        logger.exception(f"Invalid structured response for {response_model.__name__}: {sampling_response.text}")
-        msg = "The sampling call failed to generate a valid structured response."
-        raise TypeError(msg) from e
+    return False

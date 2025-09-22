@@ -68,7 +68,9 @@ async def test_list_tools(summary_mcp_client: Client[FastMCPTransport]) -> None:
             {"name": "search_issues", "description": "Search for issues in a GitHub repository by the provided keywords."},
             {"name": "search_pull_requests", "description": "Search for pull requests in a GitHub repository by the provided keywords."},
             {"name": "get_files", "description": "Get the contents of files from a GitHub repository, optionally truncating the content."},
-            {"name": "find_file_paths", "description": "Find files in a GitHub repository by their names/paths."}, {'name':'search_code_by_keywords','description':'Search for code in a GitHub repository by the provided keywords.'}, {
+            {"name": "find_file_paths", "description": "Find files in a GitHub repository by their names/paths. Does not search file contents."},
+            {"name": "search_code_by_keywords", "description": "Search for code in a GitHub repository by the provided keywords."},
+            {
                 "name": "get_readmes",
                 "description": """\
 Retrieve any asciidoc (.adoc, .asciidoc), markdown (.md, .markdown), and other text files (.txt, .rst) in the repository.
@@ -79,9 +81,7 @@ If files are fetched recursively, the files at the root of the repository will b
             {
                 "name": "get_file_extension_statistics",
                 "description": "Count the different file extensions found in a GitHub repository to identify the most common file types.",
-            },
-            {"name": "summarize_repository", "description": "Summarize a repository."},
-        ]
+            }, {"name":"summarize_repository","description":"Summarize a repository with tools."}]
     )
 
 
@@ -115,6 +115,36 @@ async def test_summarize_repository_elastic_beats(summary_mcp_client: Client[Fas
 async def test_summarize_repository_elastic_elasticsearch(summary_mcp_client: Client[FastMCPTransport]) -> None:
     owner = "elastic"
     repo = "elasticsearch"
+
+    call_tool_result: CallToolResult = await summary_mcp_client.call_tool(
+        "summarize_repository",
+        arguments={"owner": owner, "repo": repo},
+    )
+
+    summary = get_summary_from_result(call_tool_result=call_tool_result)
+    assert summary is not None
+    assert len(summary) > 500
+    write_summary_to_file(summary=summary, owner=owner, repo=repo)
+
+
+async def test_summarize_repository_elastic_kibana(summary_mcp_client: Client[FastMCPTransport]) -> None:
+    owner = "elastic"
+    repo = "kibana"
+
+    call_tool_result: CallToolResult = await summary_mcp_client.call_tool(
+        "summarize_repository",
+        arguments={"owner": owner, "repo": repo},
+    )
+
+    summary = get_summary_from_result(call_tool_result=call_tool_result)
+    assert summary is not None
+    assert len(summary) > 500
+    write_summary_to_file(summary=summary, owner=owner, repo=repo)
+
+
+async def test_summarize_repository_elastic_logstash(summary_mcp_client: Client[FastMCPTransport]) -> None:
+    owner = "elastic"
+    repo = "logstash"
 
     call_tool_result: CallToolResult = await summary_mcp_client.call_tool(
         "summarize_repository",

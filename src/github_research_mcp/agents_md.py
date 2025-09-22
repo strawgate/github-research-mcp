@@ -6,7 +6,8 @@ from typing import Literal
 
 import asyncclick as click
 from fastmcp import FastMCP
-from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
+from fastmcp.server.middleware.logging import LoggingMiddleware
+from fastmcp.utilities.logging import get_logger
 
 from github_research_mcp.clients.cache import get_cache_backend
 from github_research_mcp.clients.github import GitHubResearchClient
@@ -38,7 +39,9 @@ public_server: PublicServer = PublicServer(
 
 public_server.register_tools(fastmcp=mcp)
 
-mcp.add_middleware(middleware=StructuredLoggingMiddleware(include_payloads=True))
+mcp.add_middleware(middleware=LoggingMiddleware(include_payloads=True, logger=get_logger(__name__)))
+
+cache_backend = get_cache_backend()
 
 mcp.add_middleware(
     middleware=ResponseCachingMiddleware(

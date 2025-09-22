@@ -212,3 +212,10 @@ def dump_call_tool_result_for_snapshot(
         "content": [item.model_dump() for item in call_tool_result.content],
         "structured_content": call_tool_result.structured_content,
     }
+
+
+def dump_structured_content_for_snapshot(
+    call_tool_result: CallToolResult,
+    /,
+) -> dict[str, Any]:
+    return dump_call_tool_result_for_snapshot(call_tool_result)["structured_content"]

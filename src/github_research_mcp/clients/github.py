@@ -10,8 +10,8 @@ from githubkit.exception import GitHubException as GitHubKitGitHubException
 from githubkit.exception import GraphQLFailed as GitHubKitGraphQLFailed
 from githubkit.exception import RequestFailed as GitHubKitRequestFailed
 from githubkit.response import Response as GitHubKitResponse
-from githubkit.versions.v2022_11_28.models.group_0287 import ContentFile as GitHubKitContentFile
-from pydantic import BaseModel
+from githubkit.retry import RetryChainDecision, RetryRateLimit, RetryServerError
+from githubkit.versions.v2022_11_28.models import ContentFile as GitHubKitContentFile
 
 from github_research_mcp.clients.errors.github import RequestError, ResourceNotFoundError, ResourceTypeMismatchError
 from github_research_mcp.clients.models.github import (
@@ -41,8 +41,8 @@ from github_research_mcp.servers.shared.utility import GITHUBKIT_RESPONSE_TYPE, 
 if TYPE_CHECKING:
     from types import CoroutineType
 
+    from githubkit.versions.v2022_11_28.models import GitTree as GitHubKitGitTree
     from githubkit.versions.v2022_11_28.models import SearchCodeGetResponse200 as GitHubKitSearchCodeGetResponse200
-    from githubkit.versions.v2022_11_28.models.group_0315 import GitTree as GitHubKitGitTree
 
 NOT_FOUND_ERROR = 404
 
@@ -57,44 +57,28 @@ def get_github_token() -> str:
 
 
 def get_githubkit_client() -> GitHubKit[Any]:
-    return GitHubKit[TokenAuthStrategy](auth=TokenAuthStrategy(token=get_github_token()))
+    # Retry server errors up to 3 times
+    retry_server_error = RetryServerError()
+
+    # Retry rate limit errors up to 2 times
+    retry_rate_limit = RetryRateLimit(max_retry=2)
+
+    retry_chain = RetryChainDecision(
+        retry_server_error,
+        retry_rate_limit,
+    )
+
+    return GitHubKit[TokenAuthStrategy](auth=TokenAuthStrategy(token=get_github_token()), auto_retry=retry_chain)
 
 
 DEFAULT_ISSUE_COMMENTS_LIMIT = 10
 DEFAULT_ISSUE_RELATED_ITEMS_LIMIT = 5
 DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT = 50
 
-DEFAULT_TRUNCATE_LINES = 1000
-DEFAULT_TRUNCATE_CHARACTERS = 50000
+DEFAULT_TRUNCATE_LINES = 500
+DEFAULT_TRUNCATE_CHARACTERS = 25000
 
 DEFAULT_FIND_FILES_LIMIT = 100
-
-
-class FindFilePathsResult(BaseModel):
-    include_patterns: list[str]
-    exclude_patterns: list[str] | None
-    include_exclude_is_regex: bool
-    matching_file_paths: RepositoryTree
-
-
-class SearchCodeResult(BaseModel):
-    code_search_query: str
-    matches: list[RepositoryFileWithLineMatches]
-
-
-class SearchIssuesResult(BaseModel):
-    issue_search_query: IssueSearchQuery
-    issues: list[IssueWithDetails]
-
-
-class SearchPullRequestsResult(BaseModel):
-    pull_request_search_query: PullRequestSearchQuery
-    pull_requests: list[PullRequestWithDetails]
-
-
-class SearchIssuesByKeywordsResult(BaseModel):
-    issue_search_query: IssueSearchQuery
-    issues: list[IssueWithDetails]
 
 
 class GitHubResearchClient:
@@ -682,23 +666,20 @@ class GitHubResearchClient:
         ref: str | None = None,
         include_patterns: list[str],
         exclude_patterns: list[str] | None = None,
-        include_exclude_is_regex: bool = False,
         depth: int | None = None,
         limit_results: int = DEFAULT_FIND_FILES_LIMIT,
-    ) -> FindFilePathsResult:
+    ) -> RepositoryTree:
         """Find files in a GitHub repository by their names/paths. Does not search file contents.
 
         Args:
             owner: The owner of the repository.
             repo: The name of the repository.
             ref: The ref of the branch or tag to get the tree from. If not provided, the default branch will be used.
-            include_patterns: The patterns to check file paths against. File paths matching any of these
-                              patterns will be included in the results. If None, all files will be included.
-            exclude_patterns: The patterns to check file paths against. File paths matching any of these
-                              patterns will be excluded from the results. If None, no files will be excluded.
+            include_patterns: The patterns to check file paths against. Supports single asterisk and question mark
+                              wildcards using fnmatch syntax.
+            exclude_patterns: The patterns to check file paths against. Supports single asterisk and question mark
+                              wildcards using fnmatch syntax. If None, no files will be excluded.
                               Exclude patterns take precedence over include patterns.
-            include_exclude_is_regex: Whether the include and exclude patterns provided should be evaluated as regex.
-                              Default is False.
             depth: The depth of the tree to search. If not provided, the tree will be searched in its entirety.
                               Depth 0 is the root directory.
             limit_results: The maximum number of results to return.
@@ -709,17 +690,11 @@ class GitHubResearchClient:
 
         repository_tree: RepositoryTree = await self.get_repository_tree(owner=owner, repo=repo, ref=ref, depth=depth)
 
-        return FindFilePathsResult(
+        return FilteredRepositoryTree.from_repository_tree(
+            repository_tree=repository_tree,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
-            include_exclude_is_regex=include_exclude_is_regex,
-            matching_file_paths=FilteredRepositoryTree.from_repository_tree(
-                repository_tree=repository_tree,
-                include_patterns=include_patterns,
-                exclude_patterns=exclude_patterns,
-                include_exclude_is_regex=include_exclude_is_regex,
-            ).truncate(limit_results=limit_results),
-        )
+        ).truncate(limit_results=limit_results)
 
     async def get_repository_tree(
         self,
@@ -794,7 +769,7 @@ class GitHubResearchClient:
         owner: str,
         repo: str,
         keywords: set[str],
-    ) -> SearchCodeResult:
+    ) -> list[RepositoryFileWithLineMatches]:
         """Search for code in a repository by the provided keywords."""
 
         escaped_keywords: list[str] = [f'"{keyword}"' for keyword in sorted(keywords)]
@@ -812,12 +787,10 @@ class GitHubResearchClient:
             headers={"Accept": "application/vnd.github.text-match+json"},
         )
 
-        matches: list[RepositoryFileWithLineMatches] = [
+        return [
             RepositoryFileWithLineMatches.from_code_search_result_item(code_search_result_item=code_search_result_item)
             for code_search_result_item in response.items
         ]
-
-        return SearchCodeResult(code_search_query=query, matches=matches)
 
     async def search_pull_requests(
         self,
@@ -826,7 +799,7 @@ class GitHubResearchClient:
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
         include_pull_request_diff: bool = True,
-    ) -> SearchPullRequestsResult:
+    ) -> list[PullRequestWithDetails]:
         """Search for pull requests in a repository by the provided Search Query."""
 
         gql_search_issue_or_pull_requests_with_details: GqlSearchIssueOrPullRequestsWithDetails = await self._perform_graphql_query(
@@ -863,10 +836,7 @@ class GitHubResearchClient:
             if isinstance(issue_or_pull_request_with_details.issue_or_pr, PullRequest)
         ]
 
-        return SearchPullRequestsResult(
-            pull_request_search_query=pull_request_search_query,
-            pull_requests=pull_requests,
-        )
+        return pull_requests
 
     async def search_pull_requests_by_keywords(
         self,
@@ -878,7 +848,7 @@ class GitHubResearchClient:
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
         include_pull_request_diff: bool = True,
-    ) -> SearchPullRequestsResult:
+    ) -> list[PullRequestWithDetails]:
         """Search for pull requests in a repository by the provided keywords.
 
         Args:
@@ -912,7 +882,7 @@ class GitHubResearchClient:
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-    ) -> SearchIssuesResult:
+    ) -> list[IssueWithDetails]:
         """Search for issues in a repository using the provided Search Query."""
 
         gql_search_issue_or_pull_requests_with_details: GqlSearchIssueOrPullRequestsWithDetails = await self._perform_graphql_query(
@@ -937,10 +907,7 @@ class GitHubResearchClient:
             if isinstance(issue_or_pull_request_with_details.issue_or_pr, Issue)
         ]
 
-        return SearchIssuesResult(
-            issue_search_query=issue_search_query,
-            issues=issues,
-        )
+        return issues
 
     async def search_issues_by_keywords(
         self,
@@ -951,7 +918,7 @@ class GitHubResearchClient:
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-    ) -> SearchIssuesResult:
+    ) -> list[IssueWithDetails]:
         """Search for issues in a repository by the provided keywords.
 
         Args:

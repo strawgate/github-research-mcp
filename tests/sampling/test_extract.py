@@ -47,15 +47,16 @@ Example JSON block (a generic example, not valid for StructuredObject):
 {
  "property_1": "value_1",
  "property_2": ["value_2_1", "value_2_2"],
- "property_3": "value_3"
+ "property_3": { "nested_property": "value_3" }
 }
 ```
 
 The JSON itself must be placed between the ``` tags.
 
-The JSON does not need to be "compressed" but it should be formatted
-densely, minimizing whitespace, only ever using a single space for indentation. Place short arrays and small objects on the same
-line as the key for the object.
+The JSON should be:
+1. Formatted densely, preferring to place short arrays and objects with fewer than 3 properties on the same
+line as the key for the object and brackets on the same line.
+2. No excess whitespace, only ever use a single space for indentation.
 
 You must ensure you close any JSON tags, including arrays, objects, and strings and that
 you do not leave trailing commas or other invalid JSON.

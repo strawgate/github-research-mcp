@@ -1,9 +1,11 @@
 from datetime import datetime
 from typing import Literal, Self
 
+from githubkit.versions.v2022_11_28.models import CodeSearchResultItem as GitHubKitCodeSearchResultItem
 from githubkit.versions.v2022_11_28.models import (
     ContentFile as GitHubKitContentFile,
 )
+from githubkit.versions.v2022_11_28.models import DiffEntry as GitHubKitDiffEntry
 from githubkit.versions.v2022_11_28.models import (
     FullRepository as GitHubKitFullRepository,
 )
@@ -13,8 +15,6 @@ from githubkit.versions.v2022_11_28.models import (
 from githubkit.versions.v2022_11_28.models import (
     LicenseSimple as GitHubKitLicenseSimple,
 )
-from githubkit.versions.v2022_11_28.models.group_0238 import DiffEntry as GitHubKitDiffEntry
-from githubkit.versions.v2022_11_28.models.group_0412 import CodeSearchResultItem as GitHubKitCodeSearchResultItem
 from pydantic import BaseModel, ConfigDict, Field, RootModel
 
 from github_research_mcp.models import Comment, Issue, PullRequest
@@ -121,6 +121,7 @@ class RepositoryFileWithContent(BaseModel):
 
     path: str = Field(description="The path of the file.")
     content: FileLines = Field(description="The content of the file.")
+    total_lines: int = Field(description="The total number of lines in the file.")
     truncated: bool = Field(default=False, description="Whether the content has been truncated.")
 
     @classmethod
@@ -134,7 +135,7 @@ class RepositoryFileWithContent(BaseModel):
 
         file_lines = FileLines.from_text(text=decoded_content)
 
-        return cls(path=content_file.path, content=file_lines).truncate(
+        return cls(path=content_file.path, content=file_lines, total_lines=len(file_lines.root)).truncate(
             truncate_lines=truncate_lines, truncate_characters=truncate_characters
         )
 

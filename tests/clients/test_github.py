@@ -6,18 +6,8 @@ from dirty_equals import IsDatetime, IsStr
 from inline_snapshot import snapshot
 
 from github_research_mcp.clients.github import (
-    FindFilePathsResult,
     GitHubResearchClient,
     ResourceNotFoundError,
-    SearchCodeResult,
-    SearchIssuesResult,
-    SearchPullRequestsResult,
-)
-from github_research_mcp.clients.models.github import (
-    IssueOrPullRequestWithDetails,
-    IssueWithDetails,
-    PullRequestWithDetails,
-    RepositoryFileWithLineMatches,
 )
 from github_research_mcp.models.query.base import AnyKeywordsQualifier
 from github_research_mcp.models.query.issue_or_pull_request import IssueSearchQuery, PullRequestSearchQuery
@@ -34,7 +24,14 @@ from tests.conftest import (
 )
 
 if TYPE_CHECKING:
-    from github_research_mcp.clients.models.github import Repository, RepositoryFileWithContent
+    from github_research_mcp.clients.models.github import (
+        IssueOrPullRequestWithDetails,
+        IssueWithDetails,
+        PullRequestWithDetails,
+        Repository,
+        RepositoryFileWithContent,
+        RepositoryFileWithLineMatches,
+    )
 
 
 def test_init():
@@ -101,7 +98,7 @@ class TestGetFiles:
         )
 
         assert dump_for_snapshot(file) == snapshot(
-            {"path": "test.md", "content": {1: "this is a test file", 2: "", 3: "this is a test modification", 4: ""}, "truncated": False}
+            {"path": "test.md", "content": {1: "this is a test file", 2: "", 3: "this is a test modification", 4: ""}, "truncated": False, "total_lines": 4}
         )
 
     async def test_get_file_missing(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
@@ -163,69 +160,76 @@ class TestGetFiles:
 
 class TestFindFiles:
     async def test_find_files(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
-        tree: FindFilePathsResult = await github_research_client.find_file_paths(
+        tree: RepositoryTree = await github_research_client.find_file_paths(
             owner=e2e_repository.owner,
             repo=e2e_repository.repo,
-            include_patterns=[".md"],
-            exclude_patterns=[".txt"],
-            include_exclude_is_regex=False,
+            include_patterns=["*.md"],
+            exclude_patterns=["*.txt"],
         )
 
         assert tree == snapshot(
-            FindFilePathsResult(
-                include_patterns=[".md"],
-                exclude_patterns=[".txt"],
-                include_exclude_is_regex=False,
-                matching_file_paths=RepositoryTree(
-                    directories=[
-                        RepositoryTreeDirectory(path=".github", files=["PULL_REQUEST_TEMPLATE.md"]),
-                        RepositoryTreeDirectory(
-                            path=".github/ISSUE_TEMPLATE",
-                            files=[
-                                "bug_report.md",
-                                "enlightenment_journey.md",
-                                "feature_request.md",
-                                "philosophical_question.md",
-                            ],
-                        ),
-                    ],
-                    files=["AGENTS.md", "CONTRIBUTING.md", "CONTRIBUTORS.md", "README.md"],
-                    truncated=True,
-                ),
+            RepositoryTree(
+                directories=[
+                    RepositoryTreeDirectory(path=".github", files=["PULL_REQUEST_TEMPLATE.md"]),
+                    RepositoryTreeDirectory(
+                        path=".github/ISSUE_TEMPLATE",
+                        files=["bug_report.md", "enlightenment_journey.md", "feature_request.md", "philosophical_question.md"],
+                    ),
+                ],
+                files=["AGENTS.md", "CONTRIBUTING.md", "CONTRIBUTORS.md", "README.md"],
+            )
+        )
+
+    async def test_find_files_with_leading_wildcard(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
+        tree: RepositoryTree = await github_research_client.find_file_paths(
+            owner=e2e_repository.owner,
+            repo=e2e_repository.repo,
+            include_patterns=["*.md"],
+            exclude_patterns=["*.txt"],
+        )
+
+        assert tree == snapshot(
+            RepositoryTree(
+                directories=[
+                    RepositoryTreeDirectory(path=".github", files=["PULL_REQUEST_TEMPLATE.md"]),
+                    RepositoryTreeDirectory(
+                        path=".github/ISSUE_TEMPLATE",
+                        files=["bug_report.md", "enlightenment_journey.md", "feature_request.md", "philosophical_question.md"],
+                    ),
+                ],
+                files=["AGENTS.md", "CONTRIBUTING.md", "CONTRIBUTORS.md", "README.md"],
+            )
+        )
+
+    async def test_find_files_with_trailing_wildcard(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
+        tree: RepositoryTree = await github_research_client.find_file_paths(
+            owner=e2e_repository.owner,
+            repo=e2e_repository.repo,
+            include_patterns=[".github/ISSUE_TEMPLATE/*"],
+            exclude_patterns=["*.txt"],
+        )
+        assert tree == snapshot(
+            RepositoryTree(
+                directories=[
+                    RepositoryTreeDirectory(
+                        path=".github/ISSUE_TEMPLATE",
+                        files=["bug_report.md", "enlightenment_journey.md", "feature_request.md", "philosophical_question.md"],
+                    )
+                ],
+                files=[],
             )
         )
 
     async def test_find_files_on_ref(self, github_research_client: GitHubResearchClient, e2e_file_from_ref: E2ERepositoryFile):
-        tree: FindFilePathsResult = await github_research_client.find_file_paths(
+        tree: RepositoryTree = await github_research_client.find_file_paths(
             owner=e2e_file_from_ref.owner,
             repo=e2e_file_from_ref.repo,
-            include_patterns=[".md"],
-            exclude_patterns=[".txt"],
+            ref=e2e_file_from_ref.ref,
+            include_patterns=["*.md"],
+            exclude_patterns=["*.txt"],
         )
 
-        assert dump_for_snapshot(tree) == snapshot(
-            {
-                "include_patterns": [".md"],
-                "exclude_patterns": [".txt"],
-                "include_exclude_is_regex": False,
-                "matching_file_paths": {
-                    "directories": [
-                        {"path": ".github", "files": ["PULL_REQUEST_TEMPLATE.md"]},
-                        {
-                            "path": ".github/ISSUE_TEMPLATE",
-                            "files": [
-                                "bug_report.md",
-                                "enlightenment_journey.md",
-                                "feature_request.md",
-                                "philosophical_question.md",
-                            ],
-                        },
-                    ],
-                    "files": ["AGENTS.md", "CONTRIBUTING.md", "CONTRIBUTORS.md", "README.md"],
-                    "truncated": True,
-                },
-            }
-        )
+        assert dump_for_snapshot(tree) == snapshot({"directories": [], "files": ["test.md"], "truncated": False})
 
     async def test_find_files_on_missing_ref(
         self, github_research_client: GitHubResearchClient, e2e_file_from_missing_ref: E2ERepositoryFile
@@ -244,38 +248,30 @@ class TestFindFiles:
         )
 
     async def test_find_files_missing(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
-        tree: FindFilePathsResult = await github_research_client.find_file_paths(
+        tree: RepositoryTree = await github_research_client.find_file_paths(
             owner=e2e_repository.owner,
             repo=e2e_repository.repo,
             include_patterns=[".none"],
         )
 
-        assert dump_for_snapshot(tree) == snapshot(
-            {
-                "include_patterns": [".none"],
-                "include_exclude_is_regex": False,
-                "matching_file_paths": {"directories": [], "files": [], "truncated": True},
-            }
-        )
+        assert dump_for_snapshot(tree) == snapshot({"directories": [], "files": [], "truncated": False})
 
 
 class TestSearchCode:
     async def test_search_code_by_one_keyword(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
-        results: SearchCodeResult = await github_research_client.search_code_by_keywords(
+        results: list[RepositoryFileWithLineMatches] = await github_research_client.search_code_by_keywords(
             owner=e2e_repository.owner,
             repo=e2e_repository.repo,
             keywords={"philosophy"},
         )
 
-        assert len(results.matches) == 4
+        assert len(results) == 4
 
-        assert results.code_search_query == snapshot('repo:strawgate/github-issues-e2e-test "philosophy"')
-
-        assert results.matches == snapshot(
+        assert dump_list_for_snapshot(results) == snapshot(
             [
-                RepositoryFileWithLineMatches(
-                    path="README.md",
-                    matches=[
+                {
+                    "path": "README.md",
+                    "matches": [
                         """\
 # Output: "But what is 'Hello'? What is 'World'? Are we not all just strings in the cosmic interpreter?"
 ```
@@ -285,11 +281,11 @@ class TestSearchCode:
 G.I.T.H.U.B. is built on the principle that every line of code is a reflection of the human condition. We believe that:
 """
                     ],
-                    keywords=["Philosophy"],
-                ),
-                RepositoryFileWithLineMatches(
-                    path="src/utils.py",
-                    matches=[
+                    "keywords": ["Philosophy"],
+                },
+                {
+                    "path": "src/utils.py",
+                    "matches": [
                         '''\
     return None
 
@@ -300,11 +296,11 @@ def generate_commit_philosophy(changes: List[str]) -> str:
     \
 '''
                     ],
-                    keywords=["philosophy"],
-                ),
-                RepositoryFileWithLineMatches(
-                    path="src/oracle.py",
-                    matches=[
+                    "keywords": ["philosophy"],
+                },
+                {
+                    "path": "src/oracle.py",
+                    "matches": [
                         """\
         # Determine the type of prophecy needed
         if any(word in question_lower for word in ["code", "programming", "function", "bug", "error"]):
@@ -315,11 +311,11 @@ def generate_commit_philosophy(changes: List[str]) -> str:
             prophecy_type = ProphecyType.PERSONAL\
 """
                     ],
-                    keywords=["philosophy"],
-                ),
-                RepositoryFileWithLineMatches(
-                    path=".github/ISSUE_TEMPLATE/philosophical_question.md",
-                    matches=[
+                    "keywords": ["philosophy"],
+                },
+                {
+                    "path": ".github/ISSUE_TEMPLATE/philosophical_question.md",
+                    "matches": [
                         """\
 name: Philosophical Question - The Digital Universe Seeks Understanding
 about: Ask a deep philosophical question about code, programming, or existence
@@ -330,23 +326,55 @@ assignees: ''
 ---\
 """
                     ],
-                    keywords=["PHILOSOPHY", "philosophy"],
-                ),
+                    "keywords": ["PHILOSOPHY", "philosophy"],
+                },
             ]
         )
 
     async def test_search_code_by_two_keywords(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
-        results: SearchCodeResult = await github_research_client.search_code_by_keywords(
+        results: list[RepositoryFileWithLineMatches] = await github_research_client.search_code_by_keywords(
             owner=e2e_repository.owner,
             repo=e2e_repository.repo,
             keywords={"philosophy", "enlightenment"},
         )
 
-        assert len(results.matches) == 2
+        assert len(results) == 2
 
-        assert results.code_search_query == snapshot('repo:strawgate/github-issues-e2e-test "enlightenment" "philosophy"')
+        assert dump_list_for_snapshot(results) == snapshot(
+            [
+                {
+                    "path": "src/utils.py",
+                    "matches": [
+                        '''\
 
-        assert dump_list_for_snapshot(results.matches) == snapshot(
+def generate_commit_philosophy(changes: List[str]) -> str:
+    """\
+''',
+                        """\
+    elif "update" in change_text or "modify" in change_text:
+        return "You have updated the code, and in doing so, you have updated your understanding. Every change is a step toward enlightenment."
+    else:\
+""",
+                    ],
+                    "keywords": ["philosophy", "enlightenment"],
+                },
+                {
+                    "path": ".github/ISSUE_TEMPLATE/philosophical_question.md",
+                    "matches": [
+                        """\
+title: '[PHILOSOPHY] '
+labels: 'philosophy, cosmic-question, wisdom-seeking'
+assignees: ''\
+""",
+                        """\
+---
+
+*Remember: Every question is a step on the path to digital enlightenment. The journey of understanding begins with a single question.*\
+""",
+                    ],
+                    "keywords": ["PHILOSOPHY", "philosophy", "enlightenment"],
+                },
+            ]
         )
 
 
@@ -581,10 +609,10 @@ it has a related issue #1\
         issue_search_query: IssueSearchQuery = IssueSearchQuery.from_repo_or_owner(
             owner=e2e_issue.owner, repo=e2e_issue.repo, qualifiers=[AnyKeywordsQualifier(keywords={"quantitative"})]
         )
-        search_issues_result: SearchIssuesResult = await github_research_client.search_issues(
+        search_issues_result: list[IssueWithDetails] = await github_research_client.search_issues(
             issue_search_query=issue_search_query,
         )
-        assert dump_list_for_snapshot(search_issues_result.issues) == snapshot(
+        assert dump_list_for_snapshot(search_issues_result) == snapshot(
             [
                 {
                     "issue": {
@@ -633,13 +661,13 @@ How do you define and measure 'progress' in your coding journey? What qualitativ
         )
 
     async def test_search_issues_by_keywords(self, github_research_client: GitHubResearchClient, e2e_issue: E2EIssue):
-        search_issues_result: SearchIssuesResult = await github_research_client.search_issues_by_keywords(
+        search_issues_result: list[IssueWithDetails] = await github_research_client.search_issues_by_keywords(
             owner=e2e_issue.owner,
             repo=e2e_issue.repo,
             keywords={"philosophy"},
         )
-        assert len(search_issues_result.issues) == 1
-        assert dump_list_for_snapshot(search_issues_result.issues) == snapshot(
+        assert len(search_issues_result) == 1
+        assert dump_list_for_snapshot(search_issues_result) == snapshot(
             [
                 {
                     "issue": {
@@ -762,10 +790,10 @@ it has a related issue #1\
         pull_request_search_query: PullRequestSearchQuery = PullRequestSearchQuery.from_repo_or_owner(
             owner=e2e_pull_request.owner, repo=e2e_pull_request.repo, qualifiers=[AnyKeywordsQualifier(keywords={"description"})]
         )
-        search_pull_requests_result: SearchPullRequestsResult = await github_research_client.search_pull_requests(
+        search_pull_requests_result: list[PullRequestWithDetails] = await github_research_client.search_pull_requests(
             pull_request_search_query=pull_request_search_query,
         )
-        assert dump_list_for_snapshot(search_pull_requests_result.pull_requests) == snapshot(
+        assert dump_list_for_snapshot(search_pull_requests_result) == snapshot(
             [
                 {
                     "pull_request": {
@@ -808,13 +836,13 @@ it has a related issue #1\
         )
 
     async def test_search_pull_requests_by_keywords(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
-        search_pull_requests_result: SearchPullRequestsResult = await github_research_client.search_pull_requests_by_keywords(
+        search_pull_requests_result: list[PullRequestWithDetails] = await github_research_client.search_pull_requests_by_keywords(
             owner=e2e_pull_request.owner,
             repo=e2e_pull_request.repo,
             keywords={"description"},
         )
-        assert len(search_pull_requests_result.pull_requests) == 1
-        assert dump_list_for_snapshot(search_pull_requests_result.pull_requests) == snapshot(
+        assert len(search_pull_requests_result) == 1
+        assert dump_list_for_snapshot(search_pull_requests_result) == snapshot(
             [
                 {
                     "pull_request": {

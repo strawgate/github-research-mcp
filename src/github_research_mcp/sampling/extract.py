@@ -4,10 +4,10 @@ from typing import Any
 
 from pydantic import BaseModel, TypeAdapter
 
-ALLOWED_TYPES = BaseModel | list[BaseModel]
+ALLOWED_STRUCTURAL_SAMPLING_TYPES = BaseModel
 
 
-def object_in_text_instructions[T: ALLOWED_TYPES](object_type: type[T], require: bool = False) -> str:
+def object_in_text_instructions[T: ALLOWED_STRUCTURAL_SAMPLING_TYPES](object_type: type[T], require: bool = False) -> str:
     """Return instructions for extracting an object from a text string."""
 
     type_adapter: TypeAdapter[T] = TypeAdapter[T](object_type)
@@ -24,15 +24,16 @@ Example JSON block (a generic example, not valid for {object_type.__name__}):
 {{
  "property_1": "value_1",
  "property_2": ["value_2_1", "value_2_2"],
- "property_3": "value_3"
+ "property_3": {{ "nested_property": "value_3" }}
 }}
 ```
 
 The JSON itself must be placed between the ``` tags.
 
-The JSON does not need to be "compressed" but it should be formatted
-densely, minimizing whitespace, only ever using a single space for indentation. Place short arrays and small objects on the same
-line as the key for the object.
+The JSON should be:
+1. Formatted densely, preferring to place short arrays and objects with fewer than 3 properties on the same
+line as the key for the object and brackets on the same line.
+2. No excess whitespace, only ever use a single space for indentation.
 
 You must ensure you close any JSON tags, including arrays, objects, and strings and that
 you do not leave trailing commas or other invalid JSON.
@@ -85,7 +86,7 @@ def extract_json_blocks_from_text(text: str) -> list[str]:
     return matches
 
 
-def extract_single_object_from_json_block[T: ALLOWED_TYPES](json_block_text: str, object_type: type[T]) -> T:
+def extract_single_object_from_json_block[T: ALLOWED_STRUCTURAL_SAMPLING_TYPES](json_block_text: str, object_type: type[T]) -> T:
     """Extract an object from a JSON block."""
     type_adapter: TypeAdapter[T] = TypeAdapter[T](object_type)
 
@@ -94,7 +95,7 @@ def extract_single_object_from_json_block[T: ALLOWED_TYPES](json_block_text: str
     return type_adapter.validate_json(json_text)
 
 
-def extract_single_object_from_text[T: ALLOWED_TYPES](text: str, object_type: type[T]) -> T:
+def extract_single_object_from_text[T: ALLOWED_STRUCTURAL_SAMPLING_TYPES](text: str, object_type: type[T]) -> T:
     """Extract an object from a Markdown JSON block provided in the text string.
 
     For example:

@@ -1,9 +1,9 @@
 from logging import Logger
-from typing import TYPE_CHECKING, Annotated, Any
+from typing import Annotated, Any
 
 from fastmcp.server import FastMCP
 from fastmcp.tools import Tool
-from fastmcp.tools.tool_transform import ArgTransform, TransformedTool
+from fastmcp.tools.tool_transform import ArgTransform, TransformedTool, forward
 from fastmcp.utilities.logging import get_logger
 from pydantic import Field
 
@@ -11,7 +11,6 @@ from github_research_mcp.clients.github import GitHubResearchClient
 from github_research_mcp.clients.models.github import RepositoryFileWithContent
 from github_research_mcp.models.repository.tree import RepositoryFileCountEntry, RepositoryTree
 from github_research_mcp.servers.shared.annotations import (
-    FIND_FILES_DEPTH_ARG_TRANSFORM,
     LIMIT_COMMENTS_ARG_TRANSFORM,
     LIMIT_RELATED_ITEMS_ARG_TRANSFORM,
     OWNER,
@@ -24,27 +23,10 @@ from github_research_mcp.servers.shared.annotations import (
     TRUNCATE_LINES_ARG_TRANSFORM,
 )
 
-if TYPE_CHECKING:
-    from github_research_mcp.clients.github import FindFilePathsResult
-
-DEFAULT_TRUNCATE_LINES = 500
-DEFAULT_TRUNCATE_CHARACTERS = 20000
+DEFAULT_TRUNCATE_README_LINES = 2000
+DEFAULT_TRUNCATE_README_CHARACTERS = 60000
 DEFAULT_TOP_N_EXTENSIONS = 50
 DEFAULT_README_LIMIT = 20
-
-DEFAULT_LIMIT_GET_ISSUE_COMMENTS = 50
-DEFAULT_LIMIT_GET_ISSUE_RELATED_ITEMS = 10
-
-DEFAULT_LIMIT_GET_PULL_REQUEST_COMMENTS = 50
-DEFAULT_LIMIT_GET_PULL_REQUEST_RELATED_ITEMS = 10
-
-DEFAULT_LIMIT_SEARCH_ISSUES = 50
-DEFAULT_LIMIT_SEARCH_ISSUE_COMMENTS = 50
-DEFAULT_LIMIT_SEARCH_ISSUE_RELATED_ITEMS = 10
-
-DEFAULT_LIMIT_SEARCH_PULL_REQUESTS = 50
-DEFAULT_LIMIT_SEARCH_PULL_REQUEST_COMMENTS = 50
-DEFAULT_LIMIT_SEARCH_PULL_REQUEST_RELATED_ITEMS = 10
 
 
 def description(description: str, /) -> ArgTransform:
@@ -66,7 +48,7 @@ class ResearchServer:
     def register_tools(self, fastmcp: FastMCP[Any]) -> FastMCP[Any]:
         passthrough_tools = self.passthrough_tools()
 
-        for tool in passthrough_tools:
+        for tool in passthrough_tools.values():
             fastmcp.add_tool(tool=tool)
 
         fastmcp.add_tool(tool=Tool.from_function(fn=self.get_readmes))
@@ -74,7 +56,7 @@ class ResearchServer:
 
         return fastmcp
 
-    def passthrough_tools(self) -> list[Tool]:
+    def passthrough_tools(self) -> dict[str, TransformedTool]:
         owner_repo_args = {
             "owner": OWNER_ARG_TRANSFORM,
             "repo": REPO_ARG_TRANSFORM,
@@ -149,33 +131,50 @@ class ResearchServer:
             },
         )
 
+        async def limit_file_paths(paths: list[str], **kwargs):
+            return await forward(paths=paths[:8], **kwargs)
+
         get_files_tool = TransformedTool.from_tool(
             tool=Tool.from_function(fn=self.research_client.get_files),
             description="Get the contents of files from a GitHub repository, optionally truncating the content.",
+            transform_fn=limit_file_paths,
             transform_args={
                 **owner_repo_args,
-                "paths": description("The full paths of the files (i.e: `README.md`, `docs/index.md`) to retrieve the contents of."),
+                "paths": description(
+                    "The paths of the files (i.e: `README.md`, `docs/index.md`) to retrieve the contents of. Up to 8 paths can be provided."
+                ),
                 "truncate_lines": TRUNCATE_LINES_ARG_TRANSFORM,
                 "truncate_characters": TRUNCATE_CHARACTERS_ARG_TRANSFORM,
                 **error_on_not_found_args,
             },
         )
 
+        async def limit_pattern_counts(include_patterns: list[str], exclude_patterns: list[str] | None, **kwargs):
+            return await forward(
+                include_patterns=include_patterns[:5], exclude_patterns=exclude_patterns[:5] if exclude_patterns else None, **kwargs
+            )
+
         find_files_tool = TransformedTool.from_tool(
             tool=Tool.from_function(fn=self.research_client.find_file_paths),
-            description="Find files in a GitHub repository by their names/paths.",
+            description="Find files in a GitHub repository by their names/paths. Does not search file contents.",
+            transform_fn=limit_pattern_counts,
             transform_args={
                 **owner_repo_args,
                 "include_patterns": description(
-                    "The patterns to check file paths against. File paths matching any of these patterns will be included in the results."
+                    "The patterns to check file paths against. "
+                    "Supports single asterisk and question mark wildcards using fnmatch syntax. "
+                    "Up to 5 include patterns can be provided."
                 ),
                 "exclude_patterns": description(
                     "The patterns to check file paths against. "
-                    "File paths matching any of these patterns will be excluded from the results. "
+                    "Supports single asterisk and question mark wildcards using fnmatch syntax. "
+                    "Up to 5 exclude patterns can be provided. "
                     "If None, no files will be excluded. Exclude patterns take precedence over include patterns."
                 ),
-                "include_exclude_is_regex": description("Whether the include and exclude patterns provided should be evaluated as regex."),
-                "depth": FIND_FILES_DEPTH_ARG_TRANSFORM,
+                "depth": ArgTransform(
+                    hide=True,
+                    default=None,
+                ),
             },
         )
 
@@ -184,20 +183,26 @@ class ResearchServer:
             description="Search for code in a GitHub repository by the provided keywords.",
             transform_args={
                 **owner_repo_args,
-                "keywords": description("The keywords to use to search for code."),
+                "keywords": description(
+                    "Up to 6 keywords to use to search for code. These keywords must exist in the content of the file. "
+                    "The file must contain every single keyword to appear in the search results. File names are not considered."
+                ),
             },
         )
 
-        return [
-            get_repository_tool,
-            get_issue_tool,
-            get_pull_request_tool,
-            search_issues_tool,
-            search_pull_requests_tool,
-            get_files_tool,
-            find_files_tool,
-            search_code_tool,
-        ]
+        return {
+            tool.name: tool
+            for tool in [
+                get_repository_tool,
+                get_issue_tool,
+                get_pull_request_tool,
+                search_issues_tool,
+                search_pull_requests_tool,
+                get_files_tool,
+                find_files_tool,
+                search_code_tool,
+            ]
+        }
 
     async def get_readmes(
         self,
@@ -205,23 +210,23 @@ class ResearchServer:
         repo: REPO,
         depth: Annotated[int, "The depth of the tree to search for readmes. If not provided, only the root directory will be searched."]
         | None = None,
-        truncate_lines: TRUNCATE_LINES = DEFAULT_TRUNCATE_LINES,
-        truncate_characters: TRUNCATE_CHARACTERS = DEFAULT_TRUNCATE_CHARACTERS,
+        truncate_lines: TRUNCATE_LINES = DEFAULT_TRUNCATE_README_LINES,
+        truncate_characters: TRUNCATE_CHARACTERS = DEFAULT_TRUNCATE_README_CHARACTERS,
         limit_results: int = DEFAULT_README_LIMIT,
     ) -> list[RepositoryFileWithContent]:
         """Retrieve any asciidoc (.adoc, .asciidoc), markdown (.md, .markdown), and other text files (.txt, .rst) in the repository.
 
         If files are fetched recursively, the files at the root of the repository will be prioritized."""
 
-        find_file_paths_result: FindFilePathsResult = await self.research_client.find_file_paths(
+        find_file_paths_result: RepositoryTree = await self.research_client.find_file_paths(
             owner=owner,
             repo=repo,
-            include_patterns=[".md", ".markdown", ".adoc", ".asciidoc", ".txt", ".rst"],
+            include_patterns=["*.md", "*.markdown", "*.adoc", "*.asciidoc", "*.txt", "*.rst"],
             exclude_patterns=[],
             depth=depth or 0,
         )
 
-        file_paths: list[str] = find_file_paths_result.matching_file_paths.file_paths()[:limit_results]
+        file_paths: list[str] = find_file_paths_result.file_paths()[:limit_results]
 
         files: list[RepositoryFileWithContent] = await self.research_client.get_files(owner=owner, repo=repo, paths=file_paths)
 

@@ -1,6 +1,6 @@
-import re
 from collections import defaultdict
 from collections.abc import Sequence
+from fnmatch import fnmatch
 from typing import Self
 
 from githubkit.versions.v2022_11_28.models import GitTree
@@ -13,31 +13,24 @@ def get_file_extension(file_path: str) -> str | None:
     return file_path.split(".")[-1]
 
 
-def matches_pattern(pattern: str, regex: bool, negated: bool, directory_path: str, file_path: str) -> bool:
+def matches_pattern(pattern: str, directory_path: str, file_path: str) -> bool:
     """If the pattern is a regex, it will be matched against the directory_path and file_path.
     if the pattern is not a regex, we do a simple contains check."""
 
     full_path = f"{directory_path}/{file_path}"
-    if regex:
-        return re.match(pattern, full_path) != negated
-    return pattern in full_path != negated
+
+    return fnmatch(full_path, pattern)
 
 
-def matches_include_exclude(
-    full_path: str, include_patterns: list[str] | None, exclude_patterns: list[str] | None, include_exclude_is_regex: bool = False
-) -> bool:
+def matches_include_exclude(full_path: str, include_patterns: list[str] | None, exclude_patterns: list[str] | None) -> bool:
     if exclude_patterns is not None:
         for exclude_pattern in exclude_patterns:
-            if matches_pattern(
-                pattern=exclude_pattern, regex=include_exclude_is_regex, negated=True, directory_path=full_path, file_path=full_path
-            ):
+            if matches_pattern(pattern=exclude_pattern, directory_path=full_path, file_path=full_path):
                 return False
 
     if include_patterns is not None:
         for include_pattern in include_patterns:
-            if matches_pattern(
-                pattern=include_pattern, regex=include_exclude_is_regex, negated=False, directory_path=full_path, file_path=full_path
-            ):
+            if matches_pattern(pattern=include_pattern, directory_path=full_path, file_path=full_path):
                 return True
         return False
 
@@ -76,7 +69,6 @@ class RepositoryTreeDirectory(BaseModel):
         self,
         include_patterns: list[str] | None,
         exclude_patterns: list[str] | None,
-        include_exclude_is_regex: bool = False,
     ) -> "RepositoryTreeDirectory":
         files: list[str] = [
             file
@@ -85,7 +77,6 @@ class RepositoryTreeDirectory(BaseModel):
                 full_path=f"{self.path}/{file}",
                 include_patterns=include_patterns,
                 exclude_patterns=exclude_patterns,
-                include_exclude_is_regex=include_exclude_is_regex,
             )
         ]
 
@@ -200,6 +191,8 @@ class RepositoryTree(BaseModel):
 
         truncated_directories: list[RepositoryTreeDirectory] = []
 
+        truncated: bool = False
+
         for directory in self.directories:
             current_count = sum(len(directory.files) for directory in truncated_directories) + len(self.files)
 
@@ -207,6 +200,7 @@ class RepositoryTree(BaseModel):
                 truncated_directories.append(directory)
                 continue
 
+            truncated = True
             remaining_count = limit_results - current_count
 
             if remaining_count == 0:
@@ -214,7 +208,7 @@ class RepositoryTree(BaseModel):
 
             truncated_directories.append(RepositoryTreeDirectory(path=directory.path, files=directory.files[:remaining_count]))
 
-        return RepositoryTree(files=self.files, directories=truncated_directories, truncated=True)
+        return RepositoryTree(files=self.files, directories=truncated_directories, truncated=truncated)
 
 
 class FilteredRepositoryTree(RepositoryTree):
@@ -226,9 +220,6 @@ class FilteredRepositoryTree(RepositoryTree):
         default=None,
         description="The patterns to check file paths against. File paths matching any of these patterns will be excluded.",
     )
-    include_exclude_is_regex: bool = Field(
-        default=False, description="Whether the include and exclude patterns provided should be evaluated as regex."
-    )
 
     @classmethod
     def from_repository_tree(
@@ -236,7 +227,6 @@ class FilteredRepositoryTree(RepositoryTree):
         repository_tree: RepositoryTree,
         include_patterns: list[str] | None,
         exclude_patterns: list[str] | None,
-        include_exclude_is_regex: bool = False,
     ) -> Self:
         files = [
             file
@@ -245,7 +235,6 @@ class FilteredRepositoryTree(RepositoryTree):
                 full_path=file,
                 include_patterns=include_patterns,
                 exclude_patterns=exclude_patterns,
-                include_exclude_is_regex=include_exclude_is_regex,
             )
         ]
 
@@ -253,7 +242,6 @@ class FilteredRepositoryTree(RepositoryTree):
             directory.to_filtered_directory(
                 include_patterns=include_patterns,
                 exclude_patterns=exclude_patterns,
-                include_exclude_is_regex=include_exclude_is_regex,
             )
             for directory in repository_tree.directories
         ]
@@ -263,7 +251,6 @@ class FilteredRepositoryTree(RepositoryTree):
             files=files,
             include_patterns=include_patterns,
             exclude_patterns=exclude_patterns,
-            include_exclude_is_regex=include_exclude_is_regex,
         )
 
 
