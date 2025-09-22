@@ -1,22 +1,15 @@
 import asyncio
 import os
-from typing import Any, Literal
+from typing import Literal
 
 import asyncclick as click
 from fastmcp import FastMCP
-from fastmcp.tools import FunctionTool
-from githubkit.github import GitHub
+from fastmcp.utilities.logging import get_logger
 
-from github_research_mcp.clients.github import get_github_client
 from github_research_mcp.sampling.handler import get_sampling_handler
-from github_research_mcp.servers.issues_or_pull_requests import IssuesOrPullRequestsServer
-from github_research_mcp.servers.repository import RepositoryServer
+from github_research_mcp.servers.research import ResearchServer
 
-
-class ConfigurationError(Exception):
-    def __init__(self, message: str):
-        self.message = message
-        super().__init__(self.message)
+logger = get_logger(__name__)
 
 disable_sampling = os.getenv("DISABLE_SAMPLING")
 
@@ -25,24 +18,9 @@ mcp = FastMCP[None](
     sampling_handler=None if disable_sampling else get_sampling_handler(),
 )
 
-github_client: GitHub[Any] = get_github_client()
+repository_server: ResearchServer = ResearchServer(logger=logger)
 
-repository_server: RepositoryServer = RepositoryServer(github_client=github_client)
-
-issues_server: IssuesOrPullRequestsServer = IssuesOrPullRequestsServer(repository_server=repository_server, github_client=github_client)
-
-mcp.add_tool(tool=FunctionTool.from_function(fn=issues_server.get_issue_or_pull_request))
-mcp.add_tool(tool=FunctionTool.from_function(fn=issues_server.search_issues_or_pull_requests))
-
-if not disable_sampling:
-    mcp.add_tool(tool=FunctionTool.from_function(fn=repository_server.summarize))
-    mcp.add_tool(tool=FunctionTool.from_function(fn=issues_server.research_issue_or_pull_request))
-
-mcp.add_tool(tool=FunctionTool.from_function(fn=repository_server.get_files))
-mcp.add_tool(tool=FunctionTool.from_function(fn=repository_server.get_readmes))
-mcp.add_tool(tool=FunctionTool.from_function(fn=repository_server.find_files))
-mcp.add_tool(tool=FunctionTool.from_function(fn=repository_server.search_files))
-mcp.add_tool(tool=FunctionTool.from_function(fn=repository_server.get_file_extensions))
+repository_server.register_tools(fastmcp=mcp)
 
 
 @click.command()

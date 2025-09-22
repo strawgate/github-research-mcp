@@ -2,21 +2,17 @@
 
 import asyncio
 import os
-from typing import Any, Literal
+from typing import Literal
 
 import asyncclick as click
 from fastmcp import FastMCP
 from fastmcp.server.middleware.logging import StructuredLoggingMiddleware
-from fastmcp.tools import FunctionTool
-from githubkit.github import GitHub
 
-from github_research_mcp.clients.elasticsearch import get_elasticsearch_client
-from github_research_mcp.clients.github import get_github_client
+from github_research_mcp.clients.cache import get_cache_backend
+from github_research_mcp.clients.github import GitHubResearchClient
 from github_research_mcp.sampling.handler import get_sampling_handler
 from github_research_mcp.servers.public import PublicServer
-from github_research_mcp.servers.repository import RepositoryServer
-from github_research_mcp.vendored.caching import InMemoryCache, MethodSettings, ResponseCachingMiddleware
-from github_research_mcp.vendored.elasticsearch_cache import ElasticsearchCache
+from github_research_mcp.vendored.caching import MethodSettings, ResponseCachingMiddleware
 
 ONE_WEEK_IN_SECONDS = 60 * 60 * 24 * 7
 
@@ -32,30 +28,28 @@ mcp = FastMCP[None](
     sampling_handler_behavior="always",
 )
 
-github_client: GitHub[Any] = get_github_client()
-
-repository_server: RepositoryServer = RepositoryServer(github_client=github_client)
+github_client: GitHubResearchClient = GitHubResearchClient()
 
 public_server: PublicServer = PublicServer(
-    repository_server=repository_server, minimum_stars=minimum_stars, owner_allowlist=owner_allowlist
+    research_client=github_client,
+    minimum_stars=minimum_stars,
+    owner_allowlist=owner_allowlist,
 )
 
-mcp.add_tool(tool=FunctionTool.from_function(fn=public_server.generate_agents_md))
+public_server.register_tools(fastmcp=mcp)
 
 mcp.add_middleware(middleware=StructuredLoggingMiddleware(include_payloads=True))
 
-cache_method_settings: MethodSettings = MethodSettings(
-    call_tool={
-        "ttl": ONE_WEEK_IN_SECONDS,
-    },
+mcp.add_middleware(
+    middleware=ResponseCachingMiddleware(
+        cache_backend=get_cache_backend(),
+        method_settings=MethodSettings(
+            call_tool={
+                "ttl": ONE_WEEK_IN_SECONDS,
+            },
+        ),
+    )
 )
-
-if elasticsearch_client := get_elasticsearch_client():
-    elasticsearch_cache: ElasticsearchCache = ElasticsearchCache(elasticsearch_client=elasticsearch_client)
-
-    mcp.add_middleware(middleware=ResponseCachingMiddleware(cache_backend=elasticsearch_cache, method_settings=cache_method_settings))
-else:
-    mcp.add_middleware(middleware=ResponseCachingMiddleware(cache_backend=InMemoryCache(), method_settings=cache_method_settings))
 
 
 @click.command()

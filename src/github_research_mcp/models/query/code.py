@@ -1,10 +1,7 @@
+from collections.abc import Sequence
 from typing import Self, override
 
 from github_research_mcp.models.query.base import (
-    AllKeywordsQualifier,
-    AllSymbolsQualifier,
-    AnyKeywordsQualifier,
-    AnySymbolsQualifier,
     AssigneeQualifier,
     AuthorQualifier,
     BaseQuery,
@@ -16,25 +13,23 @@ from github_research_mcp.models.query.base import (
     PathQualifier,
     RepoQualifier,
     StateQualifier,
+    SymbolQualifier,
 )
 
 SimpleCodeSearchQualifierTypes = (
     AssigneeQualifier
     | AuthorQualifier
     | IssueTypeQualifier
-    | AllKeywordsQualifier
-    | AnyKeywordsQualifier
-    | AnySymbolsQualifier
-    | AllSymbolsQualifier
     | LabelQualifier
     | PathQualifier
     | LanguageQualifier
     | OwnerQualifier
     | RepoQualifier
     | StateQualifier
+    | SymbolQualifier
 )
 
-AdvancedCodeSearchQualifierTypes = KeywordQualifier | LabelQualifier
+AdvancedCodeSearchQualifierTypes = KeywordQualifier | OwnerQualifier | RepoQualifier | SymbolQualifier
 
 
 class CodeSearchQuery(BaseQuery[SimpleCodeSearchQualifierTypes, AdvancedCodeSearchQualifierTypes]):
@@ -46,13 +41,18 @@ class CodeSearchQuery(BaseQuery[SimpleCodeSearchQualifierTypes, AdvancedCodeSear
         return f"{query}"
 
     @classmethod
-    def from_repo_or_owner(cls, owner: str | None = None, repo: str | None = None) -> Self:
-        qualifiers: list[SimpleCodeSearchQualifierTypes] = []
+    def from_repo_or_owner(
+        cls, owner: str | None = None, repo: str | None = None, qualifiers: Sequence[SimpleCodeSearchQualifierTypes] | None = None
+    ) -> Self:
+        query_qualifiers: list[SimpleCodeSearchQualifierTypes] = []
 
         if owner is not None:
             if repo is None:
-                qualifiers.append(OwnerQualifier(owner=owner))
+                query_qualifiers.append(OwnerQualifier(owner=owner))
             else:
-                qualifiers.append(RepoQualifier(owner=owner, repo=repo))
+                query_qualifiers.append(RepoQualifier(owner=owner, repo=repo))
 
-        return cls(qualifiers=qualifiers)
+        if qualifiers:
+            query_qualifiers.extend(qualifiers)
+
+        return cls(qualifiers=query_qualifiers)

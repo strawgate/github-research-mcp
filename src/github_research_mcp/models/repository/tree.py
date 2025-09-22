@@ -1,9 +1,10 @@
 import re
 from collections import defaultdict
+from collections.abc import Sequence
 from typing import Self
 
 from githubkit.versions.v2022_11_28.models import GitTree
-from pydantic import BaseModel, field_validator
+from pydantic import BaseModel, Field, field_validator
 
 
 def get_file_extension(file_path: str) -> str | None:
@@ -23,17 +24,17 @@ def matches_pattern(pattern: str, regex: bool, negated: bool, directory_path: st
 
 
 def matches_include_exclude(
-    full_path: str, include: list[str] | None, exclude: list[str] | None, include_exclude_is_regex: bool = False
+    full_path: str, include_patterns: list[str] | None, exclude_patterns: list[str] | None, include_exclude_is_regex: bool = False
 ) -> bool:
-    if exclude is not None:
-        for exclude_pattern in exclude:
+    if exclude_patterns is not None:
+        for exclude_pattern in exclude_patterns:
             if matches_pattern(
                 pattern=exclude_pattern, regex=include_exclude_is_regex, negated=True, directory_path=full_path, file_path=full_path
             ):
                 return False
 
-    if include is not None:
-        for include_pattern in include:
+    if include_patterns is not None:
+        for include_pattern in include_patterns:
             if matches_pattern(
                 pattern=include_pattern, regex=include_exclude_is_regex, negated=False, directory_path=full_path, file_path=full_path
             ):
@@ -67,26 +68,34 @@ class RepositoryTreeDirectory(BaseModel):
     path: str
     files: list[str]
 
+    @property
+    def file_paths(self) -> list[str]:
+        return [f"{self.path}/{file}" for file in self.files]
+
     def to_filtered_directory(
         self,
-        include: list[str] | None,
-        exclude: list[str] | None,
+        include_patterns: list[str] | None,
+        exclude_patterns: list[str] | None,
         include_exclude_is_regex: bool = False,
     ) -> "RepositoryTreeDirectory":
-        return RepositoryTreeDirectory(
-            path=self.path,
-            files=[
-                file
-                for file in self.files
-                if matches_include_exclude(
-                    full_path=f"{self.path}/{file}",
-                    include=include,
-                    exclude=exclude,
-                    include_exclude_is_regex=include_exclude_is_regex,
-                )
-            ],
-        )
+        files: list[str] = [
+            file
+            for file in self.files
+            if matches_include_exclude(
+                full_path=f"{self.path}/{file}",
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                include_exclude_is_regex=include_exclude_is_regex,
+            )
+        ]
 
+        return RepositoryTreeDirectory(path=self.path, files=files)
+
+    @property
+    def depth(self) -> int:
+        return len(self.path.split("/"))
+
+    @property
     def count_files(self) -> int:
         return len(self.files)
 
@@ -103,6 +112,10 @@ class RepositoryTreeDirectory(BaseModel):
 class RepositoryTree(BaseModel):
     directories: list[RepositoryTreeDirectory]
     files: list[str]
+    truncated: bool = Field(
+        default=False,
+        description="Whether the results have been truncated. If true, the results do not contain all files.",
+    )
 
     @field_validator("directories")
     @classmethod
@@ -120,6 +133,8 @@ class RepositoryTree(BaseModel):
 
         for tree_item in git_tree.tree:
             if tree_item.type == "blob":
+                if tree_item.size is not None and tree_item.size == 0:
+                    continue
                 # Split the path into directories and file
                 directory_path, file_path = get_dir_and_file_from_path(tree_item.path)
 
@@ -131,33 +146,38 @@ class RepositoryTree(BaseModel):
 
         return cls(directories=[directory for directory in directories.values() if directory.files], files=files)
 
-    def filter_files(self, files: list[str], case_insensitive: bool = True) -> list[str]:
-        if case_insensitive:
-            return [file for file in files if file.lower() in [file.lower() for file in self.files]]
+    def check_files_not_in_tree(self, files: Sequence[str] | set[str], case_insensitive: bool = True) -> list[str]:
+        """Given a list of files, return the files that are not in the tree. If all of the files are in the tree,
+        return an empty list."""
 
-        return [file for file in files if file in self.files]
+        files_in_tree: set[str] = {file.lower() if case_insensitive else file for file in self.file_paths()}
 
-    def to_filtered_tree(
-        self,
-        include: list[str] | None,
-        exclude: list[str] | None,
-        include_exclude_is_regex: bool = False,
-    ) -> "RepositoryTree":
-        directories = [
-            directory.to_filtered_directory(include=include, exclude=exclude, include_exclude_is_regex=include_exclude_is_regex)
-            for directory in self.directories
-        ]
+        files_to_check: set[str] = {file.lower() if case_insensitive else file for file in files}
 
-        files = [
-            file
-            for file in self.files
-            if matches_include_exclude(full_path=file, include=include, exclude=exclude, include_exclude_is_regex=include_exclude_is_regex)
-        ]
+        return list(files_to_check.difference(files_in_tree))
 
-        return RepositoryTree(directories=directories, files=files)
+    def check_files_in_tree(self, files: Sequence[str] | set[str], case_insensitive: bool = True) -> list[str]:
+        """Given a list of files, return the files that are in the tree. If none of the files are in the tree,
+        return an empty list."""
 
+        files_in_tree: set[str] = {file.lower() if case_insensitive else file for file in self.file_paths()}
+
+        files_to_check: set[str] = {file.lower() if case_insensitive else file for file in files}
+
+        return list(files_to_check.intersection(files_in_tree))
+
+    def file_paths(self) -> list[str]:
+        """Return all files in the tree."""
+        all_file_paths: list[str] = self.files
+
+        for directory in self.directories:
+            all_file_paths.extend(directory.file_paths)
+
+        return all_file_paths
+
+    @property
     def count_files(self) -> int:
-        return len(self.files) + sum(directory.count_files() for directory in self.directories)
+        return len(self.files) + sum(directory.count_files for directory in self.directories)
 
     def count_file_extensions(self, top_n: int = 50) -> list[RepositoryFileCountEntry]:
         count_by_extension: dict[str, int] = defaultdict(int)
@@ -172,4 +192,88 @@ class RepositoryTree(BaseModel):
         return RepositoryFileCountEntry.sort_and_truncate(
             entries=[RepositoryFileCountEntry(extension=extension, count=count) for extension, count in count_by_extension.items()],
             top_n=top_n,
+        )
+
+    def truncate(self, limit_results: int) -> "RepositoryTree":
+        if len(self.files) > limit_results:
+            return RepositoryTree(files=self.files[:limit_results], directories=[], truncated=True)
+
+        truncated_directories: list[RepositoryTreeDirectory] = []
+
+        for directory in self.directories:
+            current_count = sum(len(directory.files) for directory in truncated_directories) + len(self.files)
+
+            if len(directory.files) + current_count <= limit_results:
+                truncated_directories.append(directory)
+                continue
+
+            remaining_count = limit_results - current_count
+
+            if remaining_count == 0:
+                break
+
+            truncated_directories.append(RepositoryTreeDirectory(path=directory.path, files=directory.files[:remaining_count]))
+
+        return RepositoryTree(files=self.files, directories=truncated_directories, truncated=True)
+
+
+class FilteredRepositoryTree(RepositoryTree):
+    include_patterns: list[str] | None = Field(
+        default=None,
+        description="The patterns to check file paths against. File paths matching any of these patterns will be included in the results.",
+    )
+    exclude_patterns: list[str] | None = Field(
+        default=None,
+        description="The patterns to check file paths against. File paths matching any of these patterns will be excluded.",
+    )
+    include_exclude_is_regex: bool = Field(
+        default=False, description="Whether the include and exclude patterns provided should be evaluated as regex."
+    )
+
+    @classmethod
+    def from_repository_tree(
+        cls,
+        repository_tree: RepositoryTree,
+        include_patterns: list[str] | None,
+        exclude_patterns: list[str] | None,
+        include_exclude_is_regex: bool = False,
+    ) -> Self:
+        files = [
+            file
+            for file in repository_tree.files
+            if matches_include_exclude(
+                full_path=file,
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                include_exclude_is_regex=include_exclude_is_regex,
+            )
+        ]
+
+        directories: list[RepositoryTreeDirectory] = [
+            directory.to_filtered_directory(
+                include_patterns=include_patterns,
+                exclude_patterns=exclude_patterns,
+                include_exclude_is_regex=include_exclude_is_regex,
+            )
+            for directory in repository_tree.directories
+        ]
+
+        return cls(
+            directories=directories,
+            files=files,
+            include_patterns=include_patterns,
+            exclude_patterns=exclude_patterns,
+            include_exclude_is_regex=include_exclude_is_regex,
+        )
+
+
+class PrunedRepositoryTree(RepositoryTree):
+    depth: int
+
+    @classmethod
+    def from_repository_tree(cls, repository_tree: RepositoryTree, depth: int) -> Self:
+        return cls(
+            directories=[directory for directory in repository_tree.directories if directory.depth <= depth],
+            files=repository_tree.files,
+            depth=depth,
         )

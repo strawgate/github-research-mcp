@@ -7,7 +7,6 @@ from elasticsearch import AsyncElasticsearch
 from pydantic import Field, TypeAdapter
 
 from github_research_mcp.vendored.caching import (
-    BaseCacheEntry,
     CacheEntryTypes,
     CacheProtocol,
 )
@@ -92,14 +91,14 @@ class ElasticsearchCache(CacheProtocol):
 
     async def set_entry(
         self,
-        cache_entry: BaseCacheEntry,
+        cache_entry: CacheEntryTypes,
     ) -> None:
         if not self.setup_called:
             await self.setup()
 
         collection_key = self.make_collection_key(collection=cache_entry.collection, key=cache_entry.key)
 
-        document = json.loads(cache_entry.model_dump_json())
+        document = json.loads(cache_entry.model_dump_json(serialize_as_any=True))
 
         document["value"] = json.dumps(document["value"])
 

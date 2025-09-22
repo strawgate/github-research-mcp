@@ -9,6 +9,7 @@ from datetime import UTC, datetime, timedelta
 from typing import Any, ClassVar, Literal, NotRequired, Protocol, Self, TypedDict, TypeVar, cast, overload
 
 import mcp.types
+from cachetools import TLRUCache
 from fastmcp.prompts.prompt import Prompt
 from fastmcp.resources.resource import Resource
 from fastmcp.server.middleware.middleware import CallNext, Middleware, MiddlewareContext
@@ -55,9 +56,7 @@ class BaseCacheEntry(BaseModel, ABC):
     model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True, arbitrary_types_allowed=True)
 
     created_at: datetime = Field(default_factory=lambda: datetime.now(tz=UTC))
-    value: CachableValueTypes
 
-    collection: str
     key: str
 
     ttl: int
@@ -239,12 +238,12 @@ class CacheProtocol(Protocol):
         self,
         collection: str,
         key: str,
-    ) -> BaseCacheEntry | None:
+    ) -> CacheEntryTypes | None:
         """Get a cache entry from the cache."""
 
     async def set_entry(
         self,
-        cache_entry: BaseCacheEntry,
+        cache_entry: CacheEntryTypes,
     ) -> None:
         """Set a value in the cache using the collection and key."""
 
@@ -279,7 +278,7 @@ class DiskCache(CacheProtocol):
     ):
         self._cache = disk_cache or DiskCacheClient(directory=path, size_limit=size_limit)
 
-    async def get_entry(self, collection: str, key: str) -> BaseCacheEntry | None:
+    async def get_entry(self, collection: str, key: str) -> CacheEntryTypes | None:
         collection_key: str = self.make_collection_key(collection=collection, key=key)
 
         cache_entry = self._cache.get(key=collection_key)
@@ -291,7 +290,7 @@ class DiskCache(CacheProtocol):
 
     async def set_entry(
         self,
-        cache_entry: BaseCacheEntry,
+        cache_entry: CacheEntryTypes,
     ) -> None:
         collection_key: str = self.make_collection_key(collection=cache_entry.collection, key=cache_entry.key)
 
@@ -326,20 +325,20 @@ class InMemoryCache(CacheProtocol):
             max_entries: The maximum number of entries to store in the cache. Defaults to 1000.
         """
         self.max_entries = max_entries
-        self._cache = MemoryCacheClient(
+        self._cache: TLRUCache[Any, CacheEntryTypes] = MemoryCacheClient[Any, CacheEntryTypes](
             maxsize=max_entries,
             ttu=_memory_cache_ttu,
             getsizeof=_memory_cache_getsizeof,
         )
 
-    async def get_entry(self, collection: str, key: str) -> BaseCacheEntry | None:
-        collection_key = self.make_collection_key(collection=collection, key=key)
+    async def get_entry(self, collection: str, key: str) -> CacheEntryTypes | None:
+        collection_key: str = self.make_collection_key(collection=collection, key=key)
 
         return self._cache.get(collection_key)
 
     async def set_entry(
         self,
-        cache_entry: BaseCacheEntry,
+        cache_entry: CacheEntryTypes,
     ) -> None:
         collection_key: str = self.make_collection_key(collection=cache_entry.collection, key=cache_entry.key)
 
@@ -449,7 +448,7 @@ class MethodSettings(TypedDict):
 
 MethodSettingsType = TypeVar("MethodSettingsType", bound=SharedMethodSettings)
 
-MCP_METHOD_TO_CACHE_ENTRY_TYPE: dict[str, type[BaseCacheEntry]] = {
+MCP_METHOD_TO_CACHE_ENTRY_TYPE: dict[str, type[CacheEntryTypes]] = {
     "tools/list": ListToolsCacheEntry,
     "tools/call": ToolResultCacheEntry,
     "resources/list": ListResourcesCacheEntry,
@@ -704,10 +703,10 @@ class ResponseCachingMiddleware(Middleware):
 
         ttl: int = self._get_cache_ttl(context=context)
 
-        cache_entry: BaseCacheEntry = MCP_METHOD_TO_CACHE_ENTRY_TYPE[collection](
-            collection=collection,
+        cache_entry: CacheEntryTypes = MCP_METHOD_TO_CACHE_ENTRY_TYPE[collection](
+            collection=collection,  # pyright: ignore[reportArgumentType]
             key=key,
-            value=value,
+            value=value,  # pyright: ignore[reportArgumentType]
             ttl=ttl,
         )
 

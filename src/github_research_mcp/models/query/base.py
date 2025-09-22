@@ -58,12 +58,25 @@ class KeywordQualifier(BaseQualifier, frozen=True):
         return f'"{keyword}"'
 
 
+class SymbolQualifier(BaseQualifier, frozen=True):
+    symbol: str = Field(description="The symbol to search for.")
+
+    def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
+        # escape backslashes with more backslashes
+        symbol = self.symbol.replace("\\", "\\\\")
+
+        # escape quotes with backslashes
+        symbol = symbol.replace('"', '\\"')
+
+        return f'symbol:"{symbol}"'
+
+
 class AllKeywordsQualifier(BaseQualifier, frozen=True):
     keywords: set[str] = Field(description="The keywords to search for.")
 
     def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
-        sorted_keywords = sorted(self.keywords)
-        return " AND ".join([f'"{keyword}"' for keyword in sorted_keywords])
+        sorted_keywords: list[str] = sorted(self.keywords)
+        return "(" + " AND ".join([f'"{keyword}"' for keyword in sorted_keywords]) + ")"
 
 
 MAX_KEYWORDS_ANY_QUALIFIER = 6
@@ -81,16 +94,16 @@ class AnyKeywordsQualifier(BaseQualifier, frozen=True):
     #     return v
 
     def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
-        sorted_keywords = sorted(self.keywords)
-        return " OR ".join([f'"{keyword}"' for keyword in sorted_keywords])
+        sorted_keywords: list[str] = sorted(self.keywords)
+        return "(" + " OR ".join([f'"{keyword}"' for keyword in sorted_keywords]) + ")"
 
 
 class AnySymbolsQualifier(BaseQualifier, frozen=True):
     symbols: set[str] = Field(description="The code symbols to search for, i.e. MyClass, MyFunction, etc.")
 
     def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
-        sorted_symbols = sorted(self.symbols)
-        return " OR ".join([f'symbol:"{symbol}"' for symbol in sorted_symbols])
+        sorted_symbols: list[str] = sorted(self.symbols)
+        return "(" + " OR ".join([f'symbol:"{symbol}"' for symbol in sorted_symbols]) + ")"
 
 
 class AllSymbolsQualifier(BaseQualifier, frozen=True):
@@ -98,7 +111,7 @@ class AllSymbolsQualifier(BaseQualifier, frozen=True):
 
     def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
         sorted_symbols = sorted(self.symbols)
-        return " AND ".join([f'symbol:"{symbol}"' for symbol in sorted_symbols])
+        return "(" + " AND ".join([f'symbol:"{symbol}"' for symbol in sorted_symbols]) + ")"
 
 
 class KeywordInQualifier(BaseQualifier, frozen=True):
@@ -121,7 +134,7 @@ class OwnerQualifier(BaseQualifier, frozen=True):
     owner: str = Field(description="The owner or organization to search for.")
 
     def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
-        return f'owner:"{self.owner}"'
+        return f"owner:{self.owner}"
 
 
 class RepoQualifier(BaseQualifier, frozen=True):
@@ -129,7 +142,7 @@ class RepoQualifier(BaseQualifier, frozen=True):
     repo: str = Field(description="The repository to search for under the owner.")
 
     def to_query(self, nested: bool = False) -> str:  # noqa: ARG002
-        return f'repo:"{self.owner}/{self.repo}"'
+        return f"repo:{self.owner}/{self.repo}"
 
 
 class IssueOrPullRequestQualifier(BaseQualifier, frozen=True):
@@ -173,6 +186,7 @@ AllQualifierTypes = (
     | KeywordQualifier
     | AllKeywordsQualifier
     | AnyKeywordsQualifier
+    | SymbolQualifier
     | KeywordInQualifier
     | LabelQualifier
     | OwnerQualifier
@@ -191,21 +205,22 @@ class BaseOperator(BaseModel, ABC, Generic[QualifierTypes]):
 
     model_config: ClassVar[ConfigDict] = ConfigDict(frozen=True)
 
-    clauses: Sequence["QualifierTypes | BaseOperator[QualifierTypes]"] = Field(description="The clauses of the operator.")
+    clauses: Sequence["QualifierTypes | AndOperator[QualifierTypes] | OrOperator[QualifierTypes]"] = Field(
+        description="The clauses of the operator."
+    )
 
     @abstractmethod
-    def to_query(self, nested: bool = False) -> str: ...
+    def to_query(self, nested: bool = False) -> str:
+        """Render the operator to a query string.
 
-    """Render the operator to a query string.
+        Args:
+            nested: Whether the operator is nested and thus should be wrapped in parentheses.
 
-    Args:
-        nested: Whether the operator is nested and thus should be wrapped in parentheses.
+        Returns:
+            The query string.
+        """
 
-    Returns:
-        The query string.
-    """
-
-    def add_clause(self, clause: "QualifierTypes | BaseOperator[QualifierTypes] | None") -> Self:
+    def add_clause(self, clause: "QualifierTypes | AndOperator[QualifierTypes] | OrOperator[QualifierTypes] | None") -> Self:
         if clause is None:
             return self
 
@@ -215,6 +230,8 @@ class BaseOperator(BaseModel, ABC, Generic[QualifierTypes]):
 
 
 class OrOperator(BaseOperator[QualifierTypes], BaseModel, Generic[QualifierTypes]):
+    """The `OrOperator` operator is the OR operator."""
+
     @override
     def to_query(self, nested: bool = False) -> str:
         query = " OR ".join([clause.to_query(nested=True) for clause in self.clauses])
@@ -222,6 +239,8 @@ class OrOperator(BaseOperator[QualifierTypes], BaseModel, Generic[QualifierTypes
 
 
 class AndOperator(BaseOperator[QualifierTypes], BaseModel, Generic[QualifierTypes]):
+    """The `AndOperator` operator is the AND operator."""
+
     @override
     def to_query(self, nested: bool = False) -> str:
         query = " AND ".join([clause.to_query(nested=True) for clause in self.clauses])
@@ -232,12 +251,12 @@ OperatorTypes = OrOperator | AndOperator
 
 
 class BaseQuery(BaseModel, Generic[QualifierTypes, AdvancedQualifierTypes]):
+    """The `BaseQuery` operator is the base class for all queries."""
+
     qualifiers: Sequence[QualifierTypes] = Field(description="The qualifiers of the search query.", default_factory=list)
     advanced: OrOperator[AdvancedQualifierTypes] | AndOperator[AdvancedQualifierTypes] | None = Field(
         default=None, description="A nested operator for advanced search."
     )
-
-    """The `BaseQuery` operator is the base class for all queries."""
 
     def add_qualifier(self, qualifier: QualifierTypes | None) -> Self:
         if qualifier is None:
@@ -247,5 +266,5 @@ class BaseQuery(BaseModel, Generic[QualifierTypes, AdvancedQualifierTypes]):
 
     def to_query(self) -> str:
         rendered_qualifiers = " ".join([qualifier.to_query() for qualifier in self.qualifiers])
-        rendered_advanced = self.advanced.to_query(True) if self.advanced else ""
+        rendered_advanced = self.advanced.to_query() if self.advanced else ""
         return f"{rendered_qualifiers} {rendered_advanced}".strip()

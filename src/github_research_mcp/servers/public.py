@@ -1,40 +1,47 @@
-from typing import TYPE_CHECKING
+from logging import Logger
+from typing import TYPE_CHECKING, Any
 
+from fastmcp import FastMCP
+from fastmcp.tools import Tool
 from fastmcp.utilities.logging import get_logger
 
-from github_research_mcp.servers.repository import (
-    RepositoryServer,
-    RepositorySummary,
-)
+from github_research_mcp.clients.github import GitHubResearchClient
 from github_research_mcp.servers.shared.annotations import OWNER, REPO
+from github_research_mcp.servers.summary import (
+    RepositorySummary,
+    SummaryServer,
+)
 
 if TYPE_CHECKING:
-    from github_research_mcp.servers.models.repository import Repository
+    from github_research_mcp.clients.models.github import Repository
 
 ONE_DAY_IN_SECONDS = 60 * 60 * 24
 
 logger = get_logger(__name__)
 
 
-class PublicServer:
-    repository_server: RepositoryServer
-
+class PublicServer(SummaryServer):
     minimum_stars: int
-
     owner_allowlist: list[str]
 
     def __init__(
         self,
-        repository_server: RepositoryServer,
-        minimum_stars: int,
-        owner_allowlist: list[str],
+        research_client: GitHubResearchClient,
+        logger: Logger | None = None,
+        minimum_stars: int | None = None,
+        owner_allowlist: list[str] | None = None,
     ):
-        self.repository_server = repository_server
-        self.minimum_stars = minimum_stars
-        self.owner_allowlist = owner_allowlist
+        super().__init__(research_client=research_client, logger=logger)
+
+        self.minimum_stars = minimum_stars or 10
+        self.owner_allowlist = owner_allowlist or []
+
+    def register_tools(self, fastmcp: FastMCP[Any]) -> FastMCP[Any]:
+        fastmcp.add_tool(tool=Tool.from_function(fn=self.generate_agents_md))
+        return fastmcp
 
     async def _check_minimum_stars(self, owner: OWNER, repo: REPO) -> bool:
-        repository: Repository | None = await self.repository_server._get_repository(owner=owner, repo=repo)
+        repository: Repository | None = await self.research_client.get_repository(owner=owner, repo=repo, error_on_not_found=False)
 
         if repository is None:
             msg = f"Repository {owner}/{repo} does not exist or access is not authorized"
@@ -57,4 +64,4 @@ class PublicServer:
             )
             raise ValueError(msg)
 
-        return await self.repository_server.summarize(owner=owner, repo=repo)
+        return await self.summarize_repository(owner=owner, repo=repo)

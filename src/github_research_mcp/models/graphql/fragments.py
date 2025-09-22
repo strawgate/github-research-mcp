@@ -1,9 +1,54 @@
 from datetime import datetime
 from textwrap import dedent
 from typing import Any, Literal
+from urllib.parse import urlparse
 
-from pydantic import BaseModel, Field, field_serializer, field_validator
+from pydantic import BaseModel, Field, computed_field, field_serializer, field_validator
 from pydantic.aliases import AliasChoices
+
+
+def owner_repository_from_url(url: str) -> tuple[str, str]:
+    """Get owner and repository from URL."""
+    if "/" not in url:
+        msg = f"URL must be in format 'https://github.com/owner/repository', got: {url}"
+        raise ValueError(msg)
+    if not url.startswith("https://github.com/"):
+        msg = f"URL must be in format 'https://github.com/owner/repository', got: {url}"
+        raise ValueError(msg)
+
+    parsed_url = urlparse(url)
+    owner = parsed_url.path.split("/")[1]
+    repository = parsed_url.path.split("/")[2]
+
+    return owner, repository
+
+
+def owner_repository_issue_number_from_url(url: str) -> tuple[str, str, int]:
+    """Get owner, repository, and issue number from URL."""
+    if "/" not in url:
+        msg = f"URL must be in format 'https://github.com/owner/repository/issues/number', got: {url}"
+        raise ValueError(msg)
+
+    if not url.startswith("https://github.com/"):
+        msg = f"URL must be in format 'https://github.com/owner/repository/issues/number', got: {url}"
+        raise ValueError(msg)
+
+    parsed_url = urlparse(url)
+    owner = parsed_url.path.split("/")[1]
+    repository = parsed_url.path.split("/")[2]
+    issue_number = parsed_url.path.split("/")[4]
+
+    return owner, repository, int(issue_number)
+
+
+def get_comment_id_from_url(url: str) -> int:
+    """Parses the comment ID from the URL:
+    https://github.com/strawgate/github-issues-e2e-test/issues/1#issuecomment-3259977946
+    """
+
+    parsed_url = urlparse(url)
+    comment_id = parsed_url.fragment.split("-")[1]
+    return int(comment_id)
 
 
 def dedent_set(fragments: set[str]) -> set[str]:
@@ -68,6 +113,7 @@ class Actor(BaseModel):
 class Comment(BaseModel):
     """A comment on an issue or pull request."""
 
+    url: str
     body: str
     author: Actor
     author_association: str = Field(validation_alias="authorAssociation")
@@ -84,11 +130,35 @@ class Comment(BaseModel):
     def serialize_body(self, value: str) -> str:
         return trim_comment_body(value)
 
+    @computed_field
+    @property
+    def owner(self) -> str:
+        owner, _ = owner_repository_from_url(self.url)
+        return owner
+
+    @computed_field
+    @property
+    def repository(self) -> str:
+        _, repository = owner_repository_from_url(self.url)
+        return repository
+
+    @computed_field
+    @property
+    def issue_number(self) -> int:
+        _, _, issue_number = owner_repository_issue_number_from_url(self.url)
+        return issue_number
+
+    @computed_field
+    @property
+    def comment_id(self) -> int:
+        return get_comment_id_from_url(self.url)
+
     @staticmethod
     def graphql_fragments() -> set[str]:
         fragment = """
             fragment gqlComment on IssueComment {
                 body
+                url
                 author {
                     ...gqlActor
                 }
@@ -119,6 +189,7 @@ class Issue(BaseModel):
     """An issue on GitHub."""
 
     number: int
+    url: str
     title: str
     body: str
     state: str
@@ -134,6 +205,18 @@ class Issue(BaseModel):
     labels: list[Label]
 
     assignees: list[Actor]
+
+    @computed_field
+    @property
+    def owner(self) -> str:
+        owner, _ = owner_repository_from_url(self.url)
+        return owner
+
+    @computed_field
+    @property
+    def repository(self) -> str:
+        _, repository = owner_repository_from_url(self.url)
+        return repository
 
     @field_serializer("body")
     def serialize_body(self, value: str) -> str:
@@ -155,6 +238,7 @@ class Issue(BaseModel):
         fragment = """
             fragment gqlIssue on Issue {
                 number
+                url
                 title
                 body
                 state
@@ -187,6 +271,7 @@ class MergeCommit(BaseModel):
 class PullRequest(BaseModel):
     """A pull request on GitHub."""
 
+    url: str
     number: int
     title: str
     body: str
@@ -203,6 +288,18 @@ class PullRequest(BaseModel):
     labels: list[Label]
 
     assignees: list[Actor]
+
+    @computed_field
+    @property
+    def owner(self) -> str:
+        owner, _ = owner_repository_from_url(self.url)
+        return owner
+
+    @computed_field
+    @property
+    def repository(self) -> str:
+        _, repository = owner_repository_from_url(self.url)
+        return repository
 
     @field_serializer("body")
     def serialize_body(self, value: str) -> str:
@@ -224,6 +321,7 @@ class PullRequest(BaseModel):
         fragment = """
             fragment gqlPullRequest on PullRequest {
                 number
+                url
                 title
                 body
                 state

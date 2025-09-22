@@ -4,12 +4,14 @@ from typing import override
 from fastmcp.experimental.sampling.handlers.base import BaseLLMSamplingHandler
 from google.genai import Client as GoogleGenaiClient
 from google.genai.types import (
+    Candidate,
     Content,
     ContentUnion,
     GenerateContentConfig,
     GenerateContentResponse,
     ModelContent,
     Part,
+    ThinkingConfig,
     UserContent,
 )
 from mcp import ClientSession, ServerSession
@@ -18,6 +20,7 @@ from mcp.types import (
     AudioContent,
     CreateMessageResult,
     ImageContent,
+    ModelPreferences,
     SamplingMessage,
     TextContent,
 )
@@ -39,18 +42,23 @@ class GoogleGenaiSamplingHandler(BaseLLMSamplingHandler):
         contents: list[ContentUnion] = convert_messages_to_google_genai_content(messages)
 
         response: GenerateContentResponse = await self.client.aio.models.generate_content(
-            model=self.default_model,
+            model=self.get_model(model_preferences=params.modelPreferences),
             contents=contents,
             config=GenerateContentConfig(
                 system_instruction=params.systemPrompt,
                 temperature=params.temperature,
                 max_output_tokens=params.maxTokens,
                 stop_sequences=params.stopSequences,
+                thinking_config=ThinkingConfig(thinking_budget=200),
             ),
         )
 
         if not (text := response.text):
-            msg = "No content in response from completion."
+            candidate = get_candidate_from_response(response)
+
+            finish_reason = candidate.finish_reason
+
+            msg = f"No content in response from completion: {finish_reason}"
             raise ValueError(msg)
 
         return CreateMessageResult(
@@ -59,12 +67,26 @@ class GoogleGenaiSamplingHandler(BaseLLMSamplingHandler):
             model=self.default_model,
         )
 
+    def get_model(self, model_preferences: ModelPreferences | None) -> str:
+        if model_preferences and model_preferences.hints and model_preferences.hints[0].name:
+            return model_preferences.hints[0].name
+
+        return self.default_model
+
 
 def sampling_content_to_google_genai_part(content: TextContent | ImageContent | AudioContent) -> Part:
     if isinstance(content, TextContent):
         return Part(text=content.text)
 
     msg = f"Invalid content type: {type(content)}"
+    raise ValueError(msg)
+
+
+def get_candidate_from_response(response: GenerateContentResponse) -> Candidate:
+    if response.candidates and response.candidates[0]:
+        return response.candidates[0]
+
+    msg = "No candidate in response from completion."
     raise ValueError(msg)
 
 

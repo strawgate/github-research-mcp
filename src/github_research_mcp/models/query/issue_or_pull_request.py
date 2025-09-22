@@ -1,3 +1,4 @@
+from collections.abc import Sequence
 from typing import Literal, Self
 
 from github_research_mcp.models.query.base import (
@@ -51,3 +52,53 @@ class IssueOrPullRequestSearchQuery(
                 qualifiers.append(RepoQualifier(owner=owner, repo=repo))
 
         return cls(qualifiers=qualifiers)
+
+
+class IssueSearchQuery(BaseQuery[SimpleIssueOrPullRequestSearchQualifierTypes, AdvancedIssueOrPullRequestSearchQualifierTypes]):
+    """The `IssueOrPullRequestSearchQuery` operator searches for issues or pull requests."""
+
+    @classmethod
+    def from_repo_or_owner(
+        cls,
+        owner: str | None = None,
+        repo: str | None = None,
+        qualifiers: Sequence[SimpleIssueOrPullRequestSearchQualifierTypes] | None = None,
+    ) -> Self:
+        query_qualifiers: list[SimpleIssueOrPullRequestSearchQualifierTypes] = [IssueOrPullRequestQualifier(issue_or_pull_request="issue")]
+
+        if owner is not None:
+            if repo is None:
+                query_qualifiers.append(OwnerQualifier(owner=owner))
+            else:
+                query_qualifiers.append(RepoQualifier(owner=owner, repo=repo))
+
+        if qualifiers:
+            query_qualifiers.extend(qualifiers)
+
+        return cls(qualifiers=query_qualifiers)
+
+
+class PullRequestSearchQuery(BaseQuery[SimpleIssueOrPullRequestSearchQualifierTypes, AdvancedIssueOrPullRequestSearchQualifierTypes]):
+    """The `PullRequestSearchQuery` operator searches for pull requests."""
+
+    @classmethod
+    def from_repo_or_owner(
+        cls,
+        owner: str | None = None,
+        repo: str | None = None,
+        qualifiers: Sequence[SimpleIssueOrPullRequestSearchQualifierTypes] | None = None,
+    ) -> Self:
+        query_qualifiers: list[SimpleIssueOrPullRequestSearchQualifierTypes] = [
+            IssueOrPullRequestQualifier(issue_or_pull_request="pull_request")
+        ]
+
+        if owner is not None:
+            if repo is None:
+                query_qualifiers.append(OwnerQualifier(owner=owner))
+            else:
+                query_qualifiers.append(RepoQualifier(owner=owner, repo=repo))
+
+        if qualifiers:
+            query_qualifiers.extend(qualifiers)
+
+        return cls(qualifiers=query_qualifiers)

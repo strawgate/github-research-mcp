@@ -34,7 +34,6 @@ github-research-mcp = "github_research_mcp.main:run_mcp"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
-asyncio_default_fixture_loop_scope = "session"
 env_files = [".env"]
 addopts = ["--inline-snapshot=disable","-vv","-s"]
 markers = [
@@ -109,6 +108,7 @@ extend-exclude=["**/clients/graphql/**"]
 ]
 "**/references/*" = ["ALL"]
 "template/*" = ["ALL"]
+"**/vendored/**" = ["ALL"]
 
 [tool.pyright]
 pythonVersion = "3.12"
