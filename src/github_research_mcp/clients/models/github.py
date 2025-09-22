@@ -1,6 +1,8 @@
+import base64
 from datetime import datetime
 from typing import Literal, Self
 
+from fastmcp.utilities.logging import get_logger
 from githubkit.versions.v2022_11_28.models import CodeSearchResultItem as GitHubKitCodeSearchResultItem
 from githubkit.versions.v2022_11_28.models import (
     ContentFile as GitHubKitContentFile,
@@ -23,7 +25,8 @@ from github_research_mcp.models.graphql.queries import (
     GqlIssueWithDetails,
     GqlSearchIssueOrPullRequestsWithDetails,
 )
-from github_research_mcp.servers.shared.utility import decode_content
+
+logger = get_logger(__name__)
 
 DEFAULT_TRUNCATE_CONTENT_LINES = 500
 DEFAULT_TRUNCATE_CONTENT_CHARACTERS = 20000
@@ -69,6 +72,13 @@ class RepositoryLicense(BaseModel):
     @classmethod
     def from_license_simple(cls, license_simple: GitHubKitLicenseSimple) -> Self:
         return cls(name=license_simple.name, url=license_simple.url)
+
+
+def try_decode_base64_utf8(content: bytes) -> str | None:
+    try:
+        return content.decode("utf-8")
+    except Exception:
+        return None
 
 
 class Repository(BaseModel):
@@ -120,8 +130,9 @@ class RepositoryFileWithContent(BaseModel):
     """A file with its path and content."""
 
     path: str = Field(description="The path of the file.")
-    content: FileLines = Field(description="The content of the file.")
-    total_lines: int = Field(description="The total number of lines in the file.")
+    encoding: str = Field(description="The encoding of the file.")
+    content: FileLines | None = Field(description="The content of the file.")
+    total_lines: int | None = Field(description="The total number of lines in the file.")
     truncated: bool = Field(default=False, description="Whether the content has been truncated.")
 
     @classmethod
@@ -131,15 +142,27 @@ class RepositoryFileWithContent(BaseModel):
         truncate_lines: int = DEFAULT_TRUNCATE_CONTENT_LINES,
         truncate_characters: int = DEFAULT_TRUNCATE_CONTENT_CHARACTERS,
     ) -> Self:
-        decoded_content = decode_content(content_file.content)
+        content: str | None = None
+        encoding: str = "binary"
+        file_lines: FileLines | None = None
 
-        file_lines = FileLines.from_text(text=decoded_content)
+        if content_file.encoding == "base64":
+            content_bytes: bytes = base64.b64decode(content_file.content)
+            if content_text := try_decode_base64_utf8(content_bytes):
+                content = content_text
+                encoding = "utf-8"
+                file_lines = FileLines.from_text(text=content)
 
-        return cls(path=content_file.path, content=file_lines, total_lines=len(file_lines.root)).truncate(
+        total_lines: int | None = len(file_lines.root) if file_lines else None
+
+        return cls(path=content_file.path, encoding=encoding, content=file_lines, total_lines=total_lines).truncate(
             truncate_lines=truncate_lines, truncate_characters=truncate_characters
         )
 
     def truncate(self, truncate_lines: int, truncate_characters: int) -> Self:
+        if self.content is None:
+            return self
+
         return self.model_copy(
             update={"content": self.content.truncate(truncate_lines=truncate_lines, truncate_characters=truncate_characters)}
         )

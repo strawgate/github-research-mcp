@@ -208,6 +208,7 @@ Example:
 - 3-6 bullets pointing to the most valuable follow-up actions/files for deeper onboarding.
 - If identified in the documentation, share a short list of 2-5 gotchas derived from docs/CI
   (e.g., required JVM arg, flaky test advice, platform-specific steps). Do not guess.
+- Any unique (not common) terminology that is used within the project and what it means and where to learn more.
 
 ## Getting Unstuck
 If there is specific documentation (a readme, a section of a readme, etc) in the repository that covers gotchas,

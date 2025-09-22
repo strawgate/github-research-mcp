@@ -68,7 +68,10 @@ async def test_list_tools(summary_mcp_client: Client[FastMCPTransport]) -> None:
             {"name": "search_issues", "description": "Search for issues in a GitHub repository by the provided keywords."},
             {"name": "search_pull_requests", "description": "Search for pull requests in a GitHub repository by the provided keywords."},
             {"name": "get_files", "description": "Get the contents of files from a GitHub repository, optionally truncating the content."},
-            {"name": "find_file_paths", "description": "Find files in a GitHub repository by their names/paths. Does not search file contents."},
+            {
+                "name": "find_file_paths",
+                "description": "Find files in a GitHub repository by their names/paths. Does not search file contents.",
+            },
             {"name": "search_code_by_keywords", "description": "Search for code in a GitHub repository by the provided keywords."},
             {
                 "name": "get_readmes",
@@ -81,7 +84,9 @@ If files are fetched recursively, the files at the root of the repository will b
             {
                 "name": "get_file_extension_statistics",
                 "description": "Count the different file extensions found in a GitHub repository to identify the most common file types.",
-            }, {"name":"summarize_repository","description":"Summarize a repository with tools."}]
+            },
+            {"name": "summarize_repository", "description": "Summarize a repository with tools."},
+        ]
     )
 
 

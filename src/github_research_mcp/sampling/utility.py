@@ -27,7 +27,6 @@ from github_research_mcp.sampling.extract import (
     extract_single_object_from_text,
     object_in_text_instructions,
 )
-from github_research_mcp.servers.shared.utility import estimate_model_tokens
 
 if TYPE_CHECKING:
     from fastmcp.server import Context
@@ -46,6 +45,19 @@ def dump_yaml(value: Any | list[Any]) -> str:
         return "\n".join([yaml.safe_dump(item, **YAML_DUMP_DEFAULTS) for item in value])
 
     return yaml.safe_dump(value, **YAML_DUMP_DEFAULTS)
+
+
+def estimate_tokens(text: str) -> int:
+    """Estimate the number of tokens for a given text."""
+    return len(text) // 4
+
+
+def estimate_model_tokens(basemodel: BaseModel | Sequence[BaseModel]) -> int:
+    """Estimate the number of tokens for a given base model."""
+    if isinstance(basemodel, Sequence):
+        return sum(estimate_model_tokens(item) for item in basemodel)
+
+    return estimate_tokens(basemodel.model_dump_json())
 
 
 def get_sampling_tokens(system_prompt: str, messages: Sequence[SamplingMessage]) -> int:
@@ -316,13 +328,12 @@ async def multi_turn_tool_calling_sample(
 ) -> list[SamplingMessage]:
     """Sample a response from the server."""
 
-    all_messages: list[SamplingMessage] = [*messages]
     new_messages: list[SamplingMessage] = []
 
     for _ in range(max_turns):
         assistant_message, tool_messages = await tool_calling_sample(
             system_prompt=system_prompt,
-            messages=all_messages,
+            messages=[*messages, *new_messages],
             max_tokens=max_tokens,
             temperature=temperature,
             model_preferences=model_preferences,
@@ -332,7 +343,6 @@ async def multi_turn_tool_calling_sample(
         )
 
         new_messages.extend([assistant_message, *tool_messages])
-        all_messages.extend(new_messages)
 
     return new_messages
 

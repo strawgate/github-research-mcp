@@ -9,9 +9,11 @@ from githubkit.auth.token import TokenAuthStrategy
 from githubkit.exception import GitHubException as GitHubKitGitHubException
 from githubkit.exception import GraphQLFailed as GitHubKitGraphQLFailed
 from githubkit.exception import RequestFailed as GitHubKitRequestFailed
+from githubkit.response import Response
 from githubkit.response import Response as GitHubKitResponse
 from githubkit.retry import RetryChainDecision, RetryRateLimit, RetryServerError
 from githubkit.versions.v2022_11_28.models import ContentFile as GitHubKitContentFile
+from pydantic import BaseModel
 
 from github_research_mcp.clients.errors.github import RequestError, ResourceNotFoundError, ResourceTypeMismatchError
 from github_research_mcp.clients.models.github import (
@@ -36,7 +38,6 @@ from github_research_mcp.models.query.base import (
 )
 from github_research_mcp.models.query.issue_or_pull_request import IssueSearchQuery, PullRequestSearchQuery
 from github_research_mcp.models.repository.tree import FilteredRepositoryTree, PrunedRepositoryTree, RepositoryTree
-from github_research_mcp.servers.shared.utility import GITHUBKIT_RESPONSE_TYPE, extract_response
 
 if TYPE_CHECKING:
     from types import CoroutineType
@@ -45,6 +46,15 @@ if TYPE_CHECKING:
     from githubkit.versions.v2022_11_28.models import SearchCodeGetResponse200 as GitHubKitSearchCodeGetResponse200
 
 NOT_FOUND_ERROR = 404
+
+GITHUBKIT_RESPONSE_TYPE = BaseModel | Sequence[BaseModel]
+# GITHUBKIT_RESPONSE = TypeVar("GITHUBKIT_RESPONSE", bound=BaseModel | Sequence[BaseModel])
+
+
+def extract_response[T: GITHUBKIT_RESPONSE_TYPE](response: Response[T], /) -> T:
+    """Extract the response from a response."""
+
+    return response.parsed_data
 
 
 def get_github_token() -> str:

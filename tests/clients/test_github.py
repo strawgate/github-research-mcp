@@ -9,6 +9,10 @@ from github_research_mcp.clients.github import (
     GitHubResearchClient,
     ResourceNotFoundError,
 )
+from github_research_mcp.clients.models.github import (
+    FileLines,
+    RepositoryFileWithContent,
+)
 from github_research_mcp.models.query.base import AnyKeywordsQualifier
 from github_research_mcp.models.query.issue_or_pull_request import IssueSearchQuery, PullRequestSearchQuery
 from github_research_mcp.models.repository.tree import RepositoryTree, RepositoryTreeDirectory
@@ -29,7 +33,6 @@ if TYPE_CHECKING:
         IssueWithDetails,
         PullRequestWithDetails,
         Repository,
-        RepositoryFileWithContent,
         RepositoryFileWithLineMatches,
     )
 
@@ -85,9 +88,101 @@ class TestGetFiles:
             owner=e2e_repository.owner, repo=e2e_repository.repo, path="README.md"
         )
 
-        assert file is not None
-        assert file.path == "README.md"
-        assert file.content is not None
+        assert file == snapshot(
+            RepositoryFileWithContent(
+                path="README.md",
+                encoding="utf-8",
+                content=FileLines(
+                    root={
+                        1: "# G.I.T.H.U.B. - The Existential Code Companion",
+                        2: "",
+                        3: "**Generally Introspective Text Handler for Unrealized Brilliance**",
+                        4: "",
+                        5: "An AI-powered code editor extension that doesn't just check for syntax errors, but also prompts you with philosophical questions about your code's purpose and your life choices as a developer.",
+                        6: "",
+                        7: "## What is G.I.T.H.U.B.?",
+                        8: "",
+                        9: "G.I.T.H.U.B. is more than just another code linter. It's your existential coding companion that asks the deep questions:",
+                        10: "",
+                        11: "- *\"Why are you writing this function? What does it mean to 'return' something?\"*",
+                        12: "- *\"Is this variable truly 'null' or just undefined in the grand scheme of things?\"*",
+                        13: "- *\"Are you sure you want to commit this? What does 'commit' even mean in the context of human existence?\"*",
+                        14: "",
+                        15: "## Features",
+                        16: "",
+                        17: "### 🤔 Existential Code Analysis",
+                        18: "- Analyzes your code for philosophical implications",
+                        19: "- Suggests deeper meanings behind your algorithms",
+                        20: "- Questions the very nature of programming itself",
+                        21: "",
+                        22: "### 💭 Philosophical Commit Messages",
+                        23: "- Generates profound commit messages that make you question reality",
+                        24: "- Examples:",
+                        25: "  - `\"Refactored the user authentication, but what is the 'self' that we are authenticating?\"`",
+                        26: '  - `"Fixed the null pointer exception, but are we not all null pointers in the cosmic void?"`',
+                        27: '  - `"Optimized the database query, but what is time when we\'re all just data?"`',
+                        28: "",
+                        29: "### 🧘 Mindfulness Integration",
+                        30: '- Pauses your coding session to ask: "Are you coding because you want to, or because you need to?"',
+                        31: "- Suggests meditation breaks when your code becomes too complex",
+                        32: "- Reminds you that every bug is just a feature of the universe",
+                        33: "",
+                        34: "### 🎭 AI-Powered Existential Counseling",
+                        35: "- Provides therapy for imposter syndrome",
+                        36: "- Helps you find meaning in your infinite loops",
+                        37: "- Explains why your code works in production but not locally (it's a metaphor for life)",
+                        38: "",
+                        39: "## Installation",
+                        40: "",
+                        41: "```bash",
+                        42: "pip install gith-ub",
+                        43: "```",
+                        44: "",
+                        45: "## Usage",
+                        46: "",
+                        47: "```python",
+                        48: "from gith_ub import ExistentialCoder",
+                        49: "",
+                        50: "coder = ExistentialCoder()",
+                        51: "coder.analyze_code(\"def hello_world(): print('Hello, World!')\")",
+                        52: "# Output: \"But what is 'Hello'? What is 'World'? Are we not all just strings in the cosmic interpreter?\"",
+                        53: "```",
+                        54: "",
+                        55: "## Philosophy",
+                        56: "",
+                        57: "G.I.T.H.U.B. is built on the principle that every line of code is a reflection of the human condition. We believe that:",
+                        58: "",
+                        59: "- Every bug is a feature of the universe trying to teach us something",
+                        60: "- Code comments are love letters to your future self",
+                        61: "- Git commits are snapshots of your soul's journey through the digital realm",
+                        62: "- The real test environment is life itself",
+                        63: "",
+                        64: "## Contributing",
+                        65: "",
+                        66: "We welcome contributions, but please remember: every pull request is a philosophical statement about the nature of collaboration and shared consciousness.",
+                        67: "",
+                        68: "## License",
+                        69: "",
+                        70: "MIT License - because even in the digital realm, we must respect the cosmic copyright of existence.",
+                        71: "",
+                        72: "---",
+                        73: "",
+                        74: "*\"In the beginning was the Word, and the Word was `console.log('Hello, World!')`\"* - The Gospel of G.I.T.H.U.B.",
+                        75: "",
+                    }
+                ),
+                total_lines=75,
+            )
+        )
+
+    async def test_get_binary_file(self, github_research_client: GitHubResearchClient):
+        file: RepositoryFileWithContent | None = await github_research_client.get_file(
+            owner="strawgate", repo="fork.docling", path="tests/data/pptx/powerpoint_with_image.pptx"
+        )
+
+        assert file == snapshot(
+            RepositoryFileWithContent(path="tests/data/pptx/powerpoint_with_image.pptx", encoding="binary", content=None, total_lines=None)
+        )
 
     async def test_get_file_on_ref(self, github_research_client: GitHubResearchClient, e2e_file_from_ref: E2ERepositoryFile):
         file: RepositoryFileWithContent | None = await github_research_client.get_file(
@@ -98,7 +193,12 @@ class TestGetFiles:
         )
 
         assert dump_for_snapshot(file) == snapshot(
-            {"path": "test.md", "content": {1: "this is a test file", 2: "", 3: "this is a test modification", 4: ""}, "truncated": False, "total_lines": 4}
+            {
+                "path": "test.md",
+                "content": {1: "this is a test file", 2: "", 3: "this is a test modification", 4: ""},
+                "truncated": False,
+                "total_lines": 4,
+            }
         )
 
     async def test_get_file_missing(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):

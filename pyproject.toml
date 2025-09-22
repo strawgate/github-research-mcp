@@ -35,7 +35,7 @@ github-research-mcp = "github_research_mcp.main:run_mcp"
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
 env_files = [".env"]
-addopts = ["--inline-snapshot=disable","-vv","-s"]
+addopts = ["--inline-snapshot=create,fix","-vv","-s"]
 markers = [
     "skip_on_ci: Skip running the test when running on CI",
 ]

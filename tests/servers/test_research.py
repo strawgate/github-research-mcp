@@ -62,7 +62,10 @@ async def test_list_tools(research_mcp_client: Client[FastMCPTransport]) -> None
                 "description": "Search for pull requests in a GitHub repository by the provided keywords.",
             },
             {"name": "get_files", "description": "Get the contents of files from a GitHub repository, optionally truncating the content."},
-            {"name": "find_file_paths", "description": "Find files in a GitHub repository by their names/paths. Does not search file contents."},
+            {
+                "name": "find_file_paths",
+                "description": "Find files in a GitHub repository by their names/paths. Does not search file contents.",
+            },
             {"name": "search_code_by_keywords", "description": "Search for code in a GitHub repository by the provided keywords."},
             {
                 "name": "get_readmes",
@@ -240,7 +243,7 @@ async def test_find_file_paths(research_mcp_client: Client[FastMCPTransport], e2
         },
     )
     assert dump_structured_content_for_snapshot(result) == snapshot(
-        {"directories": [], "files": ["CONTRIBUTORS.md","README.md"], "truncated": False}
+        {"directories": [], "files": ["CONTRIBUTORS.md", "README.md"], "truncated": False}
     )
 
 
@@ -269,7 +272,9 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
                 "result": [
                     {
                         "path": "README.md",
-                        "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""}, "total_lines": 75, "truncated": False,
+                        "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""},
+                        "total_lines": 75,
+                        "truncated": False,
                     },
                     {
                         "path": "CONTRIBUTORS.md",
@@ -280,7 +285,9 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
                             "4": "",
                             "5": "## Core Team",
                             "6": "",
-                        }, "total_lines": 37, "truncated": False,
+                        },
+                        "total_lines": 37,
+                        "truncated": False,
                     },
                 ]
             },
@@ -309,7 +316,9 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                         "8": "",
                         "9": "### The Philosopher Agent",
                         "10": "- **Purpose**: Existential code analysis and philosophical guidance",
-                    }, "total_lines": 88, "truncated": False,
+                    },
+                    "total_lines": 88,
+                    "truncated": False,
                 },
                 {
                     "path": "CONTRIBUTING.md",
@@ -324,7 +333,9 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                         "8": "",
                         "9": "### Prerequisites",
                         "10": "- Python 3.13 or higher",
-                    }, "total_lines": 105, "truncated": False,
+                    },
+                    "total_lines": 105,
+                    "truncated": False,
                 },
                 {
                     "path": "CONTRIBUTORS.md",
@@ -339,7 +350,9 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                         "8": "- **Jane Developer** - *Core Developer* - [@janedev](https://github.com/janedev)",
                         "9": "- **Bob Maintainer** - *Maintainer* - [@bobmaintainer](https://github.com/bobmaintainer)",
                         "10": "",
-                    }, "total_lines": 37, "truncated": False,
+                    },
+                    "total_lines": 37,
+                    "truncated": False,
                 },
                 {
                     "path": "README.md",
@@ -354,7 +367,9 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                         "8": "",
                         "9": "G.I.T.H.U.B. is more than just another code linter. It's your existential coding companion that asks the deep questions:",
                         "10": "",
-                    }, "total_lines": 75, "truncated": False,
+                    },
+                    "total_lines": 75,
+                    "truncated": False,
                 },
             ]
         }
@@ -386,7 +401,14 @@ async def test_search_issues(research_mcp_client: Client[FastMCPTransport], e2e_
         arguments={"owner": e2e_repository.owner, "repo": e2e_repository.repo, "keywords": ["philosophy"]},
     )
     assert dump_structured_content_for_snapshot(result) == snapshot(
-        {"result": [{"issue":{"number":6 ,"url":"https://github.com/strawgate/github-issues-e2e-test/issues/6","title":"[ENLIGHTENMENT] The Illusion of Perfect Code","body":"""\
+        {
+            "result": [
+                {
+                    "issue": {
+                        "number": 6,
+                        "url": "https://github.com/strawgate/github-issues-e2e-test/issues/6",
+                        "title": "[ENLIGHTENMENT] The Illusion of Perfect Code",
+                        "body": """\
 ## 🧘 Your Digital Enlightenment Journey
 
 *"Every developer's journey is unique, but the destination is the same: understanding."*
@@ -409,7 +431,25 @@ How do others balance the desire for perfection with the need for progress? What
 ---
 
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
-""","state":"OPEN","state_reason":None ,"is_pr":False ,"author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-13T18:10:37+00:00","updated_at":"2025-09-13T18:10:37+00:00","closed_at":None ,"labels":[],"assignees":[],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[],"related":[]}]}
+""",
+                        "state": "OPEN",
+                        "state_reason": None,
+                        "is_pr": False,
+                        "author": {"user_type": "User", "login": "strawgate"},
+                        "author_association": "OWNER",
+                        "created_at": "2025-09-13T18:10:37+00:00",
+                        "updated_at": "2025-09-13T18:10:37+00:00",
+                        "closed_at": None,
+                        "labels": [],
+                        "assignees": [],
+                        "owner": "strawgate",
+                        "repository": "github-issues-e2e-test",
+                    },
+                    "comments": [],
+                    "related": [],
+                }
+            ]
+        }
     )
 
 
@@ -419,9 +459,48 @@ async def test_search_pull_requests(research_mcp_client: Client[FastMCPTransport
         arguments={"owner": e2e_repository.owner, "repo": e2e_repository.repo, "keywords": ["test"]},
     )
     assert dump_structured_content_for_snapshot(result) == snapshot(
-        {"result": [{"pull_request":{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2","number":2 ,"title":"this is a test pull request","body":"""\
+        {
+            "result": [
+                {
+                    "pull_request": {
+                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                        "number": 2,
+                        "title": "this is a test pull request",
+                        "body": """\
 it has a description\r
 \r
 it has a related issue #1\
-""","state":"OPEN","is_pr":True ,"merged":False ,"author":{"user_type":"User","login":"strawgate"},"created_at":"2025-09-05T23:04:07+00:00","updated_at":"2025-09-05T23:04:24+00:00","closed_at":None ,"merged_at":None ,"merge_commit":None ,"labels":[{"name":"bug"}],"assignees":[{"user_type":"User","login":"strawgate"}],"owner":"strawgate","repository":"github-issues-e2e-test"},"comments":[{"url":"https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958","body":"it also has a comment","author":{"user_type":"User","login":"strawgate"},"author_association":"OWNER","created_at":"2025-09-05T23:04:24+00:00","updated_at":"2025-09-05T23:04:24+00:00","owner":"strawgate","repository":"github-issues-e2e-test","issue_number":2 ,"comment_id":3259982958 }],"related":[]}]}
+""",
+                        "state": "OPEN",
+                        "is_pr": True,
+                        "merged": False,
+                        "author": {"user_type": "User", "login": "strawgate"},
+                        "created_at": "2025-09-05T23:04:07+00:00",
+                        "updated_at": "2025-09-05T23:04:24+00:00",
+                        "closed_at": None,
+                        "merged_at": None,
+                        "merge_commit": None,
+                        "labels": [{"name": "bug"}],
+                        "assignees": [{"user_type": "User", "login": "strawgate"}],
+                        "owner": "strawgate",
+                        "repository": "github-issues-e2e-test",
+                    },
+                    "comments": [
+                        {
+                            "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
+                            "body": "it also has a comment",
+                            "author": {"user_type": "User", "login": "strawgate"},
+                            "author_association": "OWNER",
+                            "created_at": "2025-09-05T23:04:24+00:00",
+                            "updated_at": "2025-09-05T23:04:24+00:00",
+                            "owner": "strawgate",
+                            "repository": "github-issues-e2e-test",
+                            "issue_number": 2,
+                            "comment_id": 3259982958,
+                        }
+                    ],
+                    "related": [],
+                }
+            ]
+        }
     )
