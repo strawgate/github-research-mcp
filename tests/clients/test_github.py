@@ -195,6 +195,7 @@ class TestGetFiles:
         assert dump_for_snapshot(file) == snapshot(
             {
                 "path": "test.md",
+                "encoding": "utf-8",
                 "content": {1: "this is a test file", 2: "", 3: "this is a test modification", 4: ""},
                 "truncated": False,
                 "total_lines": 4,

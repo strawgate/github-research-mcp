@@ -1,0 +1,55 @@
+name: Test Github Research MCP
+
+on:
+  push:
+    branches:
+      - main
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+jobs:
+  static_analysis:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v6
+
+      - name: "Install ${matrix.package}"
+        run: uv sync --locked --group dev
+
+      - name: "Lint"
+        run: uv run ruff check --exit-non-zero-on-fix --fix
+
+      - name: "Format"
+        run: uv run ruff format --check
+
+      - name: "Type Check"
+        run: uv run basedpyright
+
+  tests:
+    needs: static_analysis
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: "Install uv"
+        uses: astral-sh/setup-uv@v6
+
+
+      - name: "Install ${matrix.package}"
+        run: uv sync --locked --group dev
+
+      - name: "Test ${matrix.package}"
+        run: uv run pytest tests
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
+
+      - name: "Build ${matrix.package}"
+        run: uv build
