@@ -124,6 +124,7 @@ exclude = [
     ".venv",
     "**/.pytest_cache/**",
     "**/.ruff_cache/**",
+    "**/vendored/**",
     "**/uv/python/**",
     "**/clients/graphql/**",
 ]
@@ -132,9 +133,4 @@ reportExplicitAny = false
 
 executionEnvironments = [
     { root = "src", reportPrivateUsage = false},
-]
-
-[tool.uv.workspace]
-members = [
-    "elasticsearch-esql-tools-mcp",
 ]

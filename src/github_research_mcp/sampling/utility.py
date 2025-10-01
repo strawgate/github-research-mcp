@@ -316,7 +316,7 @@ You may now call up to {max_tool_calls} tools.
 
 async def multi_turn_tool_calling_sample(
     system_prompt: str,
-    client: Client,
+    client: Client[Any],
     messages: Sequence[SamplingMessage],
     *,
     max_tokens: int = 2000,

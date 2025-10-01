@@ -1,6 +1,6 @@
 import asyncio
 from collections.abc import Sequence
-from typing import TYPE_CHECKING, Any, Self
+from typing import TYPE_CHECKING, Any, Self, override
 
 import yaml
 from fastmcp import FastMCP
@@ -45,7 +45,7 @@ class RepositorySummary(Repository):
 
     @classmethod
     def from_repository(cls, repository: Repository, summary: str) -> Self:
-        return cls(**repository.model_dump(), summary=summary)
+        return cls(**repository.model_dump(), summary=summary)  # pyright: ignore[reportAny]
 
 
 def dump_model_as_yaml(model: BaseModel | Sequence[BaseModel], /) -> str:
@@ -58,10 +58,11 @@ def dump_model_as_yaml(model: BaseModel | Sequence[BaseModel], /) -> str:
 class SummaryServer(ResearchServer):
     """A Research Server that provides additional tools for summarization."""
 
+    @override
     def register_tools(self, fastmcp: FastMCP[Any]) -> FastMCP[Any]:
-        super().register_tools(fastmcp=fastmcp)
+        _ = super().register_tools(fastmcp=fastmcp)
 
-        fastmcp.add_tool(tool=Tool.from_function(fn=self.summarize_repository))
+        _ = fastmcp.add_tool(tool=Tool.from_function(fn=self.summarize_repository))
 
         return fastmcp
 
