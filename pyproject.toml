@@ -1,6 +1,6 @@
 [project]
 name = "github_research_mcp"
-version = "0.5.2"
+version = "0.1.0"
 description = "Github Search Mcp project"
 readme = "README.md"
 requires-python = ">=3.12"
@@ -31,6 +31,7 @@ allow-direct-references=true
 
 [project.scripts]
 github-research-mcp = "github_research_mcp.main:run_mcp"
+agents-md-generator = "github_research_mcp.agents_md:run_mcp"
 
 [tool.pytest.ini_options]
 asyncio_mode = "auto"
@@ -46,6 +47,7 @@ dev = [
   "pytest-mock",
   "pytest-asyncio",
   "ruff",
+  "basedpyright>=1.31.6",
 ]
 lint = [
   "ruff"
