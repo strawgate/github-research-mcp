@@ -1,5 +1,5 @@
 from logging import Logger
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, override
 
 from fastmcp import FastMCP
 from fastmcp.tools import Tool
@@ -36,8 +36,9 @@ class PublicServer(SummaryServer):
         self.minimum_stars = minimum_stars or 10
         self.owner_allowlist = owner_allowlist or []
 
+    @override
     def register_tools(self, fastmcp: FastMCP[Any]) -> FastMCP[Any]:
-        fastmcp.add_tool(tool=Tool.from_function(fn=self.generate_agents_md))
+        _ = fastmcp.add_tool(tool=Tool.from_function(fn=self.generate_agents_md))
         return fastmcp
 
     async def _check_minimum_stars(self, owner: OWNER, repo: REPO) -> bool:

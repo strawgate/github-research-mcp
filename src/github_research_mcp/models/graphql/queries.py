@@ -1,6 +1,6 @@
 from abc import ABC, abstractmethod
 from textwrap import dedent
-from typing import Any
+from typing import Any, override
 
 from pydantic import BaseModel, Field
 from pydantic.aliases import AliasChoices
@@ -13,6 +13,7 @@ class GqlIssueWithDetails(Issue):
     timeline_items: Nodes[TimelineItem] = Field(validation_alias=AliasChoices("timelineItems", "timeline_items"))
 
     @staticmethod
+    @override
     def graphql_fragments() -> set[str]:
         base_fragments: set[str] = Issue.graphql_fragments()
 
@@ -27,6 +28,7 @@ class GqlPullRequestWithDetails(PullRequest):
     timeline_items: Nodes[TimelineItem] = Field(validation_alias=AliasChoices("timelineItems", "timeline_items"))
 
     @staticmethod
+    @override
     def graphql_fragments() -> set[str]:
         return {*PullRequest.graphql_fragments(), *Comment.graphql_fragments(), *TimelineItem.graphql_fragments()}
 
@@ -271,14 +273,16 @@ class GqlGetIssueOrPullRequestsWithDetails(BaseGqlQuery, BaseModel):
 #         }
 
 
-class GqlSearchIssueOrPullRequestsWithDetails(BaseGqlQuery, BaseModel):
+class GqlSearchIssueOrPullRequestsWithDetails(BaseGqlQuery):
     search: Nodes[GqlIssueWithDetails | GqlPullRequestWithDetails]
 
     @staticmethod
+    @override
     def graphql_fragments() -> set[str]:
         return {*GqlIssueWithDetails.graphql_fragments(), *GqlPullRequestWithDetails.graphql_fragments()}
 
     @staticmethod
+    @override
     def graphql_query() -> str:
         fragments = "\n".join(GqlSearchIssueOrPullRequestsWithDetails.graphql_fragments())
         query = """

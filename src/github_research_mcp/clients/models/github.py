@@ -191,7 +191,7 @@ class RepositoryFileWithLineMatches(BaseModel):
             if text_match.fragment:
                 text_matches.append(text_match.fragment)
 
-        return cls(path=code_search_result_item.path, matches=text_matches, keywords=list(keyword_matches))
+        return cls(path=code_search_result_item.path, matches=text_matches, keywords=sorted(keyword_matches))
 
 
 class GitReference(BaseModel):

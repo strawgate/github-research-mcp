@@ -426,7 +426,7 @@ assignees: ''
 ---\
 """
                     ],
-                    "keywords": ["philosophy", "PHILOSOPHY"],
+                    "keywords": ["PHILOSOPHY", "philosophy"],
                 },
             ]
         )
@@ -472,7 +472,7 @@ assignees: ''\
 *Remember: Every question is a step on the path to digital enlightenment. The journey of understanding begins with a single question.*\
 """,
                     ],
-                    "keywords": ["enlightenment", "philosophy", "PHILOSOPHY"],
+                    "keywords": ["PHILOSOPHY", "enlightenment", "philosophy"],
                 },
             ]
         )

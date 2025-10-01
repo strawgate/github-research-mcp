@@ -33,18 +33,16 @@ if TYPE_CHECKING:
 
 logger = get_logger(__name__)
 
-YAML_DUMP_DEFAULTS = {
-    "indent": 1,
-    "sort_keys": False,
-    "width": 400,
-}
+
+def dump_yaml_one(value: Any) -> str:  # pyright: ignore[reportAny]
+    return yaml.safe_dump(value, indent=1, sort_keys=False, width=400)
 
 
 def dump_yaml(value: Any | list[Any]) -> str:
     if isinstance(value, list):
-        return "\n".join([yaml.safe_dump(item, **YAML_DUMP_DEFAULTS) for item in value])
+        return "\n".join([dump_yaml_one(item) for item in value])  # pyright: ignore[reportUnknownVariableType]
 
-    return yaml.safe_dump(value, **YAML_DUMP_DEFAULTS)
+    return dump_yaml_one(value)
 
 
 def estimate_tokens(text: str) -> int:
@@ -114,7 +112,7 @@ async def sample(
 
     logger.info(f"Sampling with prompt that is {get_sampling_tokens(system_prompt, messages)} tokens.")
 
-    sampling_response: TextContent | ImageContent | AudioContent = await context.sample(  # pyright: ignore[reportAssignmentType]
+    sampling_response: TextContent | ImageContent | AudioContent = await context.sample(
         system_prompt=system_prompt,
         messages=[*messages],
         temperature=temperature,
@@ -195,7 +193,7 @@ class SamplingToolCallRequest(BaseModel):
     tool_name: str = Field(description="The name of the tool to call.")
     arguments: dict[str, Any] = Field(description="The arguments to pass to the tool.")
 
-    async def execute(self, client: Client, logger: Logger | None = None) -> "SamplingToolCallResult":
+    async def execute(self, client: Client[Any], logger: Logger | None = None) -> "SamplingToolCallResult":
         logger = logger or get_logger(__name__)
 
         logger.info(f"Calling tool {self.tool_name}: id:{self.tool_call_id} with arguments {self.arguments}.")
@@ -233,7 +231,7 @@ class SamplingToolCallResult(SamplingToolCallRequest):
             result = call_tool_result.structured_content
 
             if "result" in result:
-                result = result["result"]
+                result = result["result"]  # pyright: ignore[reportAny]
 
         return cls(
             tool_call_id=sampling_tool_call_request.tool_call_id,
@@ -264,7 +262,7 @@ def format_tool_schemas(tools: list[Tool]) -> str:
 
 async def tool_calling_sample(
     system_prompt: str,
-    client: Client,
+    client: Client[Any],
     messages: Sequence[SamplingMessage],
     *,
     max_tokens: int = 2000,

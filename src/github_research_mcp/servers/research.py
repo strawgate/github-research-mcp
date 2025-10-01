@@ -49,10 +49,10 @@ class ResearchServer:
         passthrough_tools = self.passthrough_tools()
 
         for tool in passthrough_tools.values():
-            fastmcp.add_tool(tool=tool)
+            _ = fastmcp.add_tool(tool=tool)
 
-        fastmcp.add_tool(tool=Tool.from_function(fn=self.get_readmes))
-        fastmcp.add_tool(tool=Tool.from_function(fn=self.get_file_extension_statistics))
+        _ = fastmcp.add_tool(tool=Tool.from_function(fn=self.get_readmes))
+        _ = fastmcp.add_tool(tool=Tool.from_function(fn=self.get_file_extension_statistics))
 
         return fastmcp
 
@@ -131,8 +131,8 @@ class ResearchServer:
             },
         )
 
-        async def limit_file_paths(paths: list[str], **kwargs):
-            return await forward(paths=paths[:8], **kwargs)
+        async def limit_file_paths(paths: list[str], **kwargs: Any):  # pyright: ignore[reportAny]
+            return await forward(paths=paths[:8], **kwargs)  # pyright: ignore[reportAny]
 
         get_files_tool = TransformedTool.from_tool(
             tool=Tool.from_function(fn=self.research_client.get_files),
@@ -149,9 +149,11 @@ class ResearchServer:
             },
         )
 
-        async def limit_pattern_counts(include_patterns: list[str], exclude_patterns: list[str] | None, **kwargs):
+        async def limit_pattern_counts(include_patterns: list[str], exclude_patterns: list[str] | None, **kwargs: Any):  # pyright: ignore[reportAny]
             return await forward(
-                include_patterns=include_patterns[:5], exclude_patterns=exclude_patterns[:5] if exclude_patterns else None, **kwargs
+                include_patterns=include_patterns[:5],
+                exclude_patterns=exclude_patterns[:5] if exclude_patterns else None,
+                **kwargs,  # pyright: ignore[reportAny]
             )
 
         find_files_tool = TransformedTool.from_tool(
@@ -162,14 +164,14 @@ class ResearchServer:
                 **owner_repo_args,
                 "include_patterns": description(
                     "The patterns to check file paths against. "
-                    "Supports single asterisk and question mark wildcards using fnmatch syntax. "
-                    "Up to 5 include patterns can be provided."
+                    + "Supports single asterisk and question mark wildcards using fnmatch syntax. "
+                    + "Up to 5 include patterns can be provided."
                 ),
                 "exclude_patterns": description(
                     "The patterns to check file paths against. "
-                    "Supports single asterisk and question mark wildcards using fnmatch syntax. "
-                    "Up to 5 exclude patterns can be provided. "
-                    "If None, no files will be excluded. Exclude patterns take precedence over include patterns."
+                    + "Supports single asterisk and question mark wildcards using fnmatch syntax. "
+                    + "Up to 5 exclude patterns can be provided. "
+                    + "If None, no files will be excluded. Exclude patterns take precedence over include patterns."
                 ),
                 "depth": ArgTransform(
                     hide=True,
@@ -185,7 +187,7 @@ class ResearchServer:
                 **owner_repo_args,
                 "keywords": description(
                     "Up to 6 keywords to use to search for code. These keywords must exist in the content of the file. "
-                    "The file must contain every single keyword to appear in the search results. File names are not considered."
+                    + "The file must contain every single keyword to appear in the search results. File names are not considered."
                 ),
             },
         )
