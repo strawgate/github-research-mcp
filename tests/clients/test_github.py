@@ -3,18 +3,18 @@ from typing import TYPE_CHECKING, Any
 
 import pytest
 from dirty_equals import IsDatetime, IsStr
+from githubkit import GitHub
 from inline_snapshot import snapshot
 
+from github_research_mcp.clients.errors.github import ResourceNotFoundError
 from github_research_mcp.clients.github import (
     GitHubResearchClient,
-    ResourceNotFoundError,
+    build_query,
 )
 from github_research_mcp.clients.models.github import (
     FileLines,
     RepositoryFileWithContent,
 )
-from github_research_mcp.models.query.base import AnyKeywordsQualifier
-from github_research_mcp.models.query.issue_or_pull_request import IssueSearchQuery, PullRequestSearchQuery
 from github_research_mcp.models.repository.tree import RepositoryTree, RepositoryTreeDirectory
 from tests.conftest import (
     E2EIssue,
@@ -22,7 +22,6 @@ from tests.conftest import (
     E2ERepository,
     E2ERepositoryFile,
     E2ERepositoryFiles,
-    GitHub,
     dump_for_snapshot,
     dump_list_for_snapshot,
 )
@@ -77,7 +76,7 @@ class TestRepositories:
         )
 
         with pytest.raises(ResourceNotFoundError, match=error_text):
-            await github_research_client.get_repository(
+            _ = await github_research_client.get_repository(
                 owner=e2e_missing_repository.owner, repo=e2e_missing_repository.repo, error_on_not_found=True
             )
 
@@ -212,7 +211,7 @@ class TestGetFiles:
         assert file is None
 
         with pytest.raises(ResourceNotFoundError) as e:
-            await github_research_client.get_file(
+            _ = await github_research_client.get_file(
                 owner=e2e_repository.owner,
                 repo=e2e_repository.repo,
                 path="missing",
@@ -247,7 +246,7 @@ class TestGetFiles:
         assert files[0].path == "README.md"
 
         with pytest.raises(ResourceNotFoundError) as e:
-            await github_research_client.get_files(
+            _ = await github_research_client.get_files(
                 owner=e2e_file.owner,
                 repo=e2e_file.repo,
                 paths=[e2e_file.path, "missing"],
@@ -336,7 +335,7 @@ class TestFindFiles:
         self, github_research_client: GitHubResearchClient, e2e_file_from_missing_ref: E2ERepositoryFile
     ):
         with pytest.raises(ResourceNotFoundError) as e:
-            await github_research_client.find_file_paths(
+            _ = await github_research_client.find_file_paths(
                 owner=e2e_file_from_missing_ref.owner,
                 repo=e2e_file_from_missing_ref.repo,
                 ref=e2e_file_from_missing_ref.ref,
@@ -427,7 +426,7 @@ assignees: ''
 ---\
 """
                     ],
-                    "keywords": ["PHILOSOPHY", "philosophy"],
+                    "keywords": ["philosophy", "PHILOSOPHY"],
                 },
             ]
         )
@@ -457,7 +456,7 @@ def generate_commit_philosophy(changes: List[str]) -> str:
     else:\
 """,
                     ],
-                    "keywords": ["philosophy", "enlightenment"],
+                    "keywords": ["enlightenment", "philosophy"],
                 },
                 {
                     "path": ".github/ISSUE_TEMPLATE/philosophical_question.md",
@@ -473,7 +472,7 @@ assignees: ''\
 *Remember: Every question is a step on the path to digital enlightenment. The journey of understanding begins with a single question.*\
 """,
                     ],
-                    "keywords": ["PHILOSOPHY", "philosophy", "enlightenment"],
+                    "keywords": ["enlightenment", "philosophy", "PHILOSOPHY"],
                 },
             ]
         )
@@ -545,7 +544,7 @@ True understanding comes not just from the word itself, but from its relationshi
         assert issues_or_pull_requests is None
 
         with pytest.raises(ResourceNotFoundError) as e:
-            await github_research_client.get_issue_or_pull_request(
+            _ = await github_research_client.get_issue_or_pull_request(
                 owner=e2e_missing_issue.owner,
                 repo=e2e_missing_issue.repo,
                 issue_or_pr_number=e2e_missing_issue.issue_number,
@@ -695,7 +694,7 @@ it has a related issue #1\
         assert issues is None
 
         with pytest.raises(ResourceNotFoundError) as e:
-            await github_research_client.get_issue(
+            _ = await github_research_client.get_issue(
                 owner=e2e_missing_issue.owner,
                 repo=e2e_missing_issue.repo,
                 issue_number=e2e_missing_issue.issue_number,
@@ -707,11 +706,9 @@ it has a related issue #1\
         )
 
     async def test_search_issues(self, github_research_client: GitHubResearchClient, e2e_issue: E2EIssue):
-        issue_search_query: IssueSearchQuery = IssueSearchQuery.from_repo_or_owner(
-            owner=e2e_issue.owner, repo=e2e_issue.repo, qualifiers=[AnyKeywordsQualifier(keywords={"quantitative"})]
-        )
+        issue_search_query: str = build_query(owner=e2e_issue.owner, repo=e2e_issue.repo, keywords={"quantitative"}, is_issue=True)
         search_issues_result: list[IssueWithDetails] = await github_research_client.search_issues(
-            issue_search_query=issue_search_query,
+            query=issue_search_query,
         )
         assert dump_list_for_snapshot(search_issues_result) == snapshot(
             [
@@ -876,7 +873,7 @@ it has a related issue #1\
         assert pull_request is None
 
         with pytest.raises(ResourceNotFoundError) as e:
-            await github_research_client.get_pull_request(
+            _ = await github_research_client.get_pull_request(
                 owner=e2e_missing_pull_request.owner,
                 repo=e2e_missing_pull_request.repo,
                 pull_request_number=e2e_missing_pull_request.pull_request_number,
@@ -888,11 +885,11 @@ it has a related issue #1\
         )
 
     async def test_search_pull_requests(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
-        pull_request_search_query: PullRequestSearchQuery = PullRequestSearchQuery.from_repo_or_owner(
-            owner=e2e_pull_request.owner, repo=e2e_pull_request.repo, qualifiers=[AnyKeywordsQualifier(keywords={"description"})]
+        pull_request_search_query: str = build_query(
+            owner=e2e_pull_request.owner, repo=e2e_pull_request.repo, keywords={"description"}, is_pull_request=True
         )
         search_pull_requests_result: list[PullRequestWithDetails] = await github_research_client.search_pull_requests(
-            pull_request_search_query=pull_request_search_query,
+            query=pull_request_search_query,
         )
         assert dump_list_for_snapshot(search_pull_requests_result) == snapshot(
             [

@@ -115,6 +115,7 @@ extend-exclude=["**/clients/graphql/**"]
 [tool.pyright]
 pythonVersion = "3.12"
 extraPaths = ["src/"]
+typeCheckingMode = "recommended"
 include = ["src/"]
 exclude = [
     "**/archive/**",

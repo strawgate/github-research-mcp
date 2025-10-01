@@ -32,11 +32,6 @@ from github_research_mcp.models.graphql.queries import (
     GqlGetIssueOrPullRequestsWithDetails,
     GqlSearchIssueOrPullRequestsWithDetails,
 )
-from github_research_mcp.models.query.base import (
-    AllKeywordsQualifier,
-    AnyKeywordsQualifier,
-)
-from github_research_mcp.models.query.issue_or_pull_request import IssueSearchQuery, PullRequestSearchQuery
 from github_research_mcp.models.repository.tree import FilteredRepositoryTree, PrunedRepositoryTree, RepositoryTree
 
 if TYPE_CHECKING:
@@ -49,6 +44,42 @@ NOT_FOUND_ERROR = 404
 
 GITHUBKIT_RESPONSE_TYPE = BaseModel | Sequence[BaseModel]
 # GITHUBKIT_RESPONSE = TypeVar("GITHUBKIT_RESPONSE", bound=BaseModel | Sequence[BaseModel])
+
+
+def escape_keywords(keywords: set[str]) -> list[str]:
+    # escape backslashes with more backslashes
+    escaped_keywords = [keyword.replace("\\", "\\\\") for keyword in keywords]
+
+    # escape quotes with backslashes
+    escaped_keywords = [keyword.replace('"', '\\"') for keyword in escaped_keywords]
+
+    return [f'"{keyword}"' for keyword in escaped_keywords]
+
+
+def build_query(
+    owner: str, repo: str, keywords: set[str], is_issue: bool = False, is_pull_request: bool = False, all_keywords: bool = False
+) -> str:
+    query_parts: list[str] = [
+        f"repo:{owner}/{repo}",
+    ]
+
+    if is_issue:
+        query_parts.append("is:issue")
+    elif is_pull_request:
+        query_parts.append("is:pr")
+
+    # Wrap and escape keywords
+
+    escaped_keywords = escape_keywords(keywords)
+
+    if len(escaped_keywords) == 1:
+        query_parts.append(escaped_keywords[0])
+    elif all_keywords:
+        query_parts.append("(" + " AND ".join(escaped_keywords) + ")")
+    else:
+        query_parts.append("(" + " OR ".join(escaped_keywords) + ")")
+
+    return " ".join(query_parts)
 
 
 def extract_response[T: GITHUBKIT_RESPONSE_TYPE](response: Response[T], /) -> T:
@@ -804,7 +835,7 @@ class GitHubResearchClient:
 
     async def search_pull_requests(
         self,
-        pull_request_search_query: PullRequestSearchQuery,
+        query: str,
         limit_pull_requests: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
@@ -815,7 +846,7 @@ class GitHubResearchClient:
         gql_search_issue_or_pull_requests_with_details: GqlSearchIssueOrPullRequestsWithDetails = await self._perform_graphql_query(
             query_model=GqlSearchIssueOrPullRequestsWithDetails,
             variables=GqlSearchIssueOrPullRequestsWithDetails.to_graphql_query_variables(
-                query=pull_request_search_query.to_query(),
+                query=query,
                 limit_issues_or_pull_requests=limit_pull_requests,
                 limit_comments=limit_comments,
                 limit_events=limit_related_items,
@@ -872,14 +903,17 @@ class GitHubResearchClient:
             include_pull_request_diff: Whether to include the diff of the pull request in the search results.
         """
 
-        pull_request_search_query: PullRequestSearchQuery = PullRequestSearchQuery.from_repo_or_owner(
+        query: str = build_query(
             owner=owner,
             repo=repo,
-            qualifiers=[AnyKeywordsQualifier(keywords=keywords) if all_keywords else AllKeywordsQualifier(keywords=keywords)],
+            is_issue=False,
+            is_pull_request=True,
+            keywords=keywords,
+            all_keywords=all_keywords,
         )
 
         return await self.search_pull_requests(
-            pull_request_search_query=pull_request_search_query,
+            query=query,
             limit_pull_requests=limit_pull_requests,
             limit_comments=limit_comments,
             limit_related_items=limit_related_items,
@@ -888,7 +922,7 @@ class GitHubResearchClient:
 
     async def search_issues(
         self,
-        issue_search_query: IssueSearchQuery,
+        query: str,
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
@@ -898,7 +932,7 @@ class GitHubResearchClient:
         gql_search_issue_or_pull_requests_with_details: GqlSearchIssueOrPullRequestsWithDetails = await self._perform_graphql_query(
             query_model=GqlSearchIssueOrPullRequestsWithDetails,
             variables=GqlSearchIssueOrPullRequestsWithDetails.to_graphql_query_variables(
-                query=issue_search_query.to_query(),
+                query=query,
                 limit_issues_or_pull_requests=limit_issues,
                 limit_comments=limit_comments,
                 limit_events=limit_related_items,
@@ -941,14 +975,16 @@ class GitHubResearchClient:
             limit_related_items: The maximum number of related items to include in the search results.
         """
 
-        issue_search_query: IssueSearchQuery = IssueSearchQuery.from_repo_or_owner(
+        query: str = build_query(
             owner=owner,
             repo=repo,
-            qualifiers=[AnyKeywordsQualifier(keywords=keywords) if all_keywords else AllKeywordsQualifier(keywords=keywords)],
+            keywords=keywords,
+            is_issue=True,
+            all_keywords=all_keywords,
         )
 
         return await self.search_issues(
-            issue_search_query=issue_search_query,
+            query=query,
             limit_issues=limit_issues,
             limit_comments=limit_comments,
             limit_related_items=limit_related_items,

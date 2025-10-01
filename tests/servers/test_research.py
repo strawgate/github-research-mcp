@@ -263,7 +263,7 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
             "content": [
                 {
                     "type": "text",
-                    "text": '[{"path":"README.md","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":""},"total_lines":75,"truncated":false},{"path":"CONTRIBUTORS.md","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":""},"total_lines":37,"truncated":false}]',
+                    "text": '[{"path":"README.md","encoding":"utf-8","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":""},"total_lines":75,"truncated":false},{"path":"CONTRIBUTORS.md","encoding":"utf-8","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":""},"total_lines":37,"truncated":false}]',
                     "annotations": None,
                     "meta": None,
                 }
@@ -272,12 +272,14 @@ async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_file
                 "result": [
                     {
                         "path": "README.md",
+                        "encoding": "utf-8",
                         "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""},
                         "total_lines": 75,
                         "truncated": False,
                     },
                     {
                         "path": "CONTRIBUTORS.md",
+                        "encoding": "utf-8",
                         "content": {
                             "1": "# Contributors",
                             "2": "",
@@ -305,6 +307,7 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
             "result": [
                 {
                     "path": "AGENTS.md",
+                    "encoding": "utf-8",
                     "content": {
                         "1": "# G.I.T.H.U.B. AI Agents Documentation",
                         "2": "",
@@ -322,6 +325,7 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                 },
                 {
                     "path": "CONTRIBUTING.md",
+                    "encoding": "utf-8",
                     "content": {
                         "1": "# Contributing to G.I.T.H.U.B. - The Existential Code Companion",
                         "2": "",
@@ -339,6 +343,7 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                 },
                 {
                     "path": "CONTRIBUTORS.md",
+                    "encoding": "utf-8",
                     "content": {
                         "1": "# Contributors",
                         "2": "",
@@ -356,6 +361,7 @@ async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_re
                 },
                 {
                     "path": "README.md",
+                    "encoding": "utf-8",
                     "content": {
                         "1": "# G.I.T.H.U.B. - The Existential Code Companion",
                         "2": "",
