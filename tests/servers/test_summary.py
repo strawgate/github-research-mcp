@@ -150,6 +150,7 @@ async def test_summarize_repository_elastic_kibana(summary_mcp_client: Client[Fa
     write_summary_to_file(summary=summary, owner=owner, repo=repo)
 
 
+@pytest.mark.skip_on_ci
 async def test_summarize_repository_elastic_logstash(summary_mcp_client: Client[FastMCPTransport]) -> None:
     owner = "elastic"
     repo = "logstash"

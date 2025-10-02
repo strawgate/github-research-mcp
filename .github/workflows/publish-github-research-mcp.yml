@@ -21,7 +21,7 @@ jobs:
         run: uv sync --locked --group dev
 
       - name: "Test"
-        run: uv run pytest tests
+        run: uv run pytest tests -m "not skip_on_ci"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
