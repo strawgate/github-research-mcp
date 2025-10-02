@@ -491,11 +491,9 @@ class TestIssues:
                 "title": "This is an issue",
                 "body": "It has a description",
                 "state": "OPEN",
-                "is_pr": False,
                 "author": {"user_type": "User", "login": "strawgate"},
                 "author_association": "OWNER",
                 "created_at": "2025-09-05T23:03:04+00:00",
-                "updated_at": "2025-09-05T23:03:15+00:00",
                 "labels": [{"name": "bug"}],
                 "assignees": [{"user_type": "User", "login": "strawgate"}],
                 "comments": [
@@ -582,11 +580,9 @@ How do you define and measure 'progress' in your coding journey? What qualitativ
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
 """,
                     "state": "OPEN",
-                    "is_pr": False,
                     "author": {"user_type": "User", "login": "strawgate"},
                     "author_association": "OWNER",
                     "created_at": "2025-09-13T18:12:15+00:00",
-                    "updated_at": "2025-09-13T18:12:15+00:00",
                     "labels": [],
                     "assignees": [],
                     "comments": [],
@@ -635,11 +631,9 @@ How do others balance the desire for perfection with the need for progress? What
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
 """,
                     "state": "OPEN",
-                    "is_pr": False,
                     "author": {"user_type": "User", "login": "strawgate"},
                     "author_association": "OWNER",
                     "created_at": "2025-09-13T18:10:37+00:00",
-                    "updated_at": "2025-09-13T18:10:37+00:00",
                     "labels": [],
                     "assignees": [],
                     "comments": [],
@@ -667,14 +661,12 @@ class TestPullRequests:
                 "body": """\
 it has a description\r
 \r
-it has a related issue #1\
+it has a related issue #1 \
 """,
                 "state": "OPEN",
-                "is_pr": True,
                 "merged": False,
                 "author": {"user_type": "User", "login": "strawgate"},
                 "created_at": "2025-09-05T23:04:07+00:00",
-                "updated_at": "2025-09-05T23:04:24+00:00",
                 "labels": [{"name": "bug"}],
                 "assignees": [{"user_type": "User", "login": "strawgate"}],
                 "comments": [
@@ -727,11 +719,9 @@ it has a description\r
 it has a related issue #1\
 """,
                     "state": "OPEN",
-                    "is_pr": True,
                     "merged": False,
                     "author": {"user_type": "User", "login": "strawgate"},
                     "created_at": "2025-09-05T23:04:07+00:00",
-                    "updated_at": "2025-09-05T23:04:24+00:00",
                     "labels": [{"name": "bug"}],
                     "assignees": [{"user_type": "User", "login": "strawgate"}],
                     "comments": [
@@ -767,11 +757,9 @@ it has a description\r
 it has a related issue #1\
 """,
                     "state": "OPEN",
-                    "is_pr": True,
                     "merged": False,
                     "author": {"user_type": "User", "login": "strawgate"},
                     "created_at": "2025-09-05T23:04:07+00:00",
-                    "updated_at": "2025-09-05T23:04:24+00:00",
                     "labels": [{"name": "bug"}],
                     "assignees": [{"user_type": "User", "login": "strawgate"}],
                     "comments": [

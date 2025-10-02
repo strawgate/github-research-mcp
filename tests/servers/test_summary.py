@@ -64,8 +64,15 @@ async def test_list_tools(summary_mcp_client: Client[FastMCPTransport]) -> None:
                 "description": "Get high-level information about a GitHub repository like the name, description, and other metadata.",
             },
             {"name": "get_issue", "description": "Get an issue."},
-            {"name": "get_pull_request", "description": "Get a pull request."},
-            {"name": "search_issues", "description": "Search for issues in a GitHub repository by the provided keywords."},
+            {
+                "name": "get_pull_request",
+                "description": "Get a pull request. Pull request bodies, comment bodies, and related items are truncated to reduce the response size but can be retrieved using the `get_pull_request` tool.",
+            },
+            {"name": "get_pull_request_diff", "description": "Get the diff from a pull request."},
+            {
+                "name": "search_issues",
+                "description": "Search for issues in a GitHub repository by the provided keywords. Issue bodies, comment bodies, and related items are truncated to reduce the response size but can be retrieved using the `get_issue` tool.",
+            },
             {"name": "search_pull_requests", "description": "Search for pull requests in a GitHub repository by the provided keywords."},
             {"name": "get_files", "description": "Get the contents of files from a GitHub repository, optionally truncating the content."},
             {

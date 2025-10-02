@@ -87,6 +87,9 @@ def extract_response[T: GITHUBKIT_RESPONSE_TYPE](response: Response[T], /) -> T:
     return response.parsed_data
 
 
+TRUNCATION_MARKER = "... [the middle portion has been truncated, retrieve object directly to get the full body]"
+
+
 def get_github_token() -> str:
     env_vars: set[str] = {"GITHUB_TOKEN", "GITHUB_PERSONAL_ACCESS_TOKEN"}
     for env_var in env_vars:
@@ -101,7 +104,7 @@ def get_githubkit_client() -> GitHubKit[Any]:
     retry_server_error = RetryServerError()
 
     # Retry rate limit errors up to 2 times
-    retry_rate_limit = RetryRateLimit(max_retry=2)
+    retry_rate_limit = RetryRateLimit(max_retry=3)
 
     retry_chain = RetryChainDecision(
         retry_server_error,
@@ -113,12 +116,31 @@ def get_githubkit_client() -> GitHubKit[Any]:
 
 DEFAULT_ISSUE_COMMENTS_LIMIT = 5
 DEFAULT_ISSUE_RELATED_ITEMS_LIMIT = 5
-DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT = 25
+DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT = 20
+DEFAULT_ISSUE_BODY_SIZE = 1600
+DEFAULT_COMMENT_BODY_SIZE = 600
 
 DEFAULT_TRUNCATE_LINES = 300
 DEFAULT_TRUNCATE_CHARACTERS = 4000
 
 DEFAULT_FIND_FILES_LIMIT = 100
+
+
+def trim_body(body: str, max_length: int) -> str:
+    """If the body is longer than the max length, we take the first max_length / 2 characters and the last max_length / 2 characters."""
+
+    if len(body) > max_length:
+        first_half = body[: max_length // 2]
+        middle_truncated_marker = TRUNCATION_MARKER + " ... "
+        last_half = body[-max_length // 2 :]
+        return (first_half + "\n\n" + middle_truncated_marker + "\n\n" + last_half).strip()
+
+    return body.strip()
+
+
+def trim_comment_body(body: str, max_length: int) -> str:
+    """If the body is longer than the max length, we take the first max_length / 2 characters and the last max_length / 2 characters."""
+    return trim_body(body, max_length)
 
 
 class GitHubResearchClient:
@@ -762,6 +784,8 @@ class GitHubResearchClient:
         limit_pull_requests: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
+        limit_pull_request_body_size: int = DEFAULT_ISSUE_BODY_SIZE,
+        limit_comment_body_size: int = DEFAULT_COMMENT_BODY_SIZE,
     ) -> list[GqlPullRequestWithDetails]:
         """Search for pull requests in a repository by the provided Search Query."""
 
@@ -777,6 +801,11 @@ class GitHubResearchClient:
             variables=query_variables,
         )
 
+        for pull_request in gql_search_pull_requests.search:
+            pull_request.body = trim_body(pull_request.body, limit_pull_request_body_size)
+            for comment in pull_request.comments:
+                comment.body = trim_comment_body(comment.body, limit_comment_body_size)
+
         return gql_search_pull_requests.search
 
     async def search_pull_requests_by_keywords(
@@ -788,6 +817,8 @@ class GitHubResearchClient:
         limit_pull_requests: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
+        limit_pull_request_body_size: int = DEFAULT_ISSUE_BODY_SIZE,
+        limit_comment_body_size: int = DEFAULT_COMMENT_BODY_SIZE,
     ) -> list[GqlPullRequestWithDetails]:
         """Search for pull requests in a repository by the provided keywords.
 
@@ -815,6 +846,8 @@ class GitHubResearchClient:
             limit_pull_requests=limit_pull_requests,
             limit_comments=limit_comments,
             limit_related_items=limit_related_items,
+            limit_pull_request_body_size=limit_pull_request_body_size,
+            limit_comment_body_size=limit_comment_body_size,
         )
 
     async def search_issues(
@@ -823,6 +856,8 @@ class GitHubResearchClient:
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
+        limit_issue_body_size: int = DEFAULT_ISSUE_BODY_SIZE,
+        limit_comment_body_size: int = DEFAULT_COMMENT_BODY_SIZE,
     ) -> list[GqlIssueWithDetails]:
         """Search for issues in a repository using the provided Search Query."""
 
@@ -838,6 +873,11 @@ class GitHubResearchClient:
             variables=query_variables,
         )
 
+        for issue in gql_search_issues.search:
+            issue.body = trim_body(issue.body, limit_issue_body_size)
+            for comment in issue.comments:
+                comment.body = trim_comment_body(comment.body, limit_comment_body_size)
+
         return gql_search_issues.search
 
     async def search_issues_by_keywords(
@@ -849,6 +889,8 @@ class GitHubResearchClient:
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
+        limit_issue_body_size: int = DEFAULT_ISSUE_BODY_SIZE,
+        limit_comment_body_size: int = DEFAULT_COMMENT_BODY_SIZE,
     ) -> list[GqlIssueWithDetails]:
         """Search for issues in a repository by the provided keywords.
 
@@ -875,4 +917,6 @@ class GitHubResearchClient:
             limit_issues=limit_issues,
             limit_comments=limit_comments,
             limit_related_items=limit_related_items,
+            limit_issue_body_size=limit_issue_body_size,
+            limit_comment_body_size=limit_comment_body_size,
         )

@@ -9,7 +9,6 @@ from github_research_mcp.models.graphql.fragments import (
     Actor,
     Issue,
     PullRequest,
-    trim_comment_body,
 )
 
 
@@ -19,10 +18,6 @@ class Comment(BaseModel):
     body: str
     author: Actor
     author_association: str = Field(validation_alias="authorAssociation")
-
-    @field_serializer("body")
-    def serialize_body(self, value: str) -> str:
-        return trim_comment_body(value)
 
     @staticmethod
     def graphql_fragments() -> set[str]:

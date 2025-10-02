@@ -94,7 +94,9 @@ class ResearchServer:
         search_issues_tool = TransformedTool.from_tool(
             tool=Tool.from_function(fn=self.research_client.search_issues_by_keywords),
             name="search_issues",
-            description="Search for issues in a GitHub repository by the provided keywords.",
+            description="Search for issues in a GitHub repository by the provided keywords. "
+            + "Issue bodies, comment bodies, and related items are truncated to reduce the response size but can be retrieved "
+            + "using the `get_issue` tool.",
             transform_args={
                 **owner_repo_args,
                 "keywords": description("The keywords to use to search for issues."),
@@ -106,13 +108,25 @@ class ResearchServer:
 
         get_pull_request_tool = TransformedTool.from_tool(
             tool=Tool.from_function(fn=self.research_client.get_pull_request),
-            description="Get a pull request.",
+            description="Get a pull request. "
+            + "Pull request bodies, comment bodies, and related items are truncated to reduce the response size but can be retrieved "
+            + "using the `get_pull_request` tool.",
             transform_args={
                 **owner_repo_args,
                 "pull_request_number": description(
                     "The number of the GitHub pull request to get. Will return an error if called on an Issue."
                 ),
                 **limits_args,
+                **error_on_not_found_args,
+            },
+        )
+
+        get_pull_request_diff_tool = TransformedTool.from_tool(
+            tool=Tool.from_function(fn=self.research_client.get_pull_request_diff),
+            description="Get the diff from a pull request.",
+            transform_args={
+                **owner_repo_args,
+                "pull_request_number": description("The number of the GitHub pull request to get the diff of."),
                 **error_on_not_found_args,
             },
         )
@@ -197,6 +211,7 @@ class ResearchServer:
                 get_repository_tool,
                 get_issue_tool,
                 get_pull_request_tool,
+                get_pull_request_diff_tool,
                 search_issues_tool,
                 search_pull_requests_tool,
                 get_files_tool,

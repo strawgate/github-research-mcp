@@ -56,8 +56,15 @@ async def test_list_tools(research_mcp_client: Client[FastMCPTransport]) -> None
                 "description": "Get high-level information about a GitHub repository like the name, description, and other metadata.",
             },
             {"name": "get_issue", "description": "Get an issue."},
-            {"name": "get_pull_request", "description": "Get a pull request."},
-            {"name": "search_issues", "description": "Search for issues in a GitHub repository by the provided keywords."},
+            {
+                "name": "get_pull_request",
+                "description": "Get a pull request. Pull request bodies, comment bodies, and related items are truncated to reduce the response size but can be retrieved using the `get_pull_request` tool.",
+            },
+            {"name": "get_pull_request_diff", "description": "Get the diff from a pull request."},
+            {
+                "name": "search_issues",
+                "description": "Search for issues in a GitHub repository by the provided keywords. Issue bodies, comment bodies, and related items are truncated to reduce the response size but can be retrieved using the `get_issue` tool.",
+            },
             {
                 "name": "search_pull_requests",
                 "description": "Search for pull requests in a GitHub repository by the provided keywords.",
@@ -158,12 +165,9 @@ True understanding comes not just from the word itself, but from its relationshi
 *Remember: Every feature is a step towards a more enlightened digital future. Embrace the creation, and the wisdom will follow.*\
 """,
                 "state": "OPEN",
-                "state_reason": None,
-                "is_pr": False,
                 "author": {"user_type": "User", "login": "strawgate"},
                 "author_association": "OWNER",
                 "created_at": "2025-09-13T18:11:09+00:00",
-                "updated_at": "2025-09-13T18:11:09+00:00",
                 "closed_at": None,
                 "labels": [],
                 "assignees": [],
@@ -194,14 +198,12 @@ async def test_get_pull_request(research_mcp_client: Client[FastMCPTransport], e
                 "body": """\
 it has a description\r
 \r
-it has a related issue #1\
+it has a related issue #1 \
 """,
                 "state": "OPEN",
-                "is_pr": True,
                 "merged": False,
                 "author": {"user_type": "User", "login": "strawgate"},
                 "created_at": "2025-09-05T23:04:07+00:00",
-                "updated_at": "2025-09-05T23:04:24+00:00",
                 "closed_at": None,
                 "merged_at": None,
                 "merge_commit": None,
@@ -424,12 +426,9 @@ How do others balance the desire for perfection with the need for progress? What
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
 """,
                     "state": "OPEN",
-                    "state_reason": None,
-                    "is_pr": False,
                     "author": {"user_type": "User", "login": "strawgate"},
                     "author_association": "OWNER",
                     "created_at": "2025-09-13T18:10:37+00:00",
-                    "updated_at": "2025-09-13T18:10:37+00:00",
                     "closed_at": None,
                     "labels": [],
                     "assignees": [],
@@ -473,11 +472,9 @@ it has a description\r
 it has a related issue #1\
 """,
                     "state": "OPEN",
-                    "is_pr": True,
                     "merged": False,
                     "author": {"user_type": "User", "login": "strawgate"},
                     "created_at": "2025-09-05T23:04:07+00:00",
-                    "updated_at": "2025-09-05T23:04:24+00:00",
                     "closed_at": None,
                     "merged_at": None,
                     "merge_commit": None,
