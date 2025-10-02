@@ -127,7 +127,6 @@ class ResearchServer:
                 "all_keywords": description("Whether all keywords must be present for a result to appear in the search results."),
                 **limits_args,
                 "limit_pull_requests": description("The maximum number of pull requests to include in the search results."),
-                "include_pull_request_diff": description("Whether to include the diff of the pull request in the search results."),
             },
         )
 

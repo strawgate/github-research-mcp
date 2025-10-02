@@ -2,7 +2,7 @@ import re
 from typing import TYPE_CHECKING, Any
 
 import pytest
-from dirty_equals import IsDatetime, IsStr
+from dirty_equals import IsDatetime
 from githubkit import GitHub
 from inline_snapshot import snapshot
 
@@ -28,12 +28,10 @@ from tests.conftest import (
 
 if TYPE_CHECKING:
     from github_research_mcp.clients.models.github import (
-        IssueOrPullRequestWithDetails,
-        IssueWithDetails,
-        PullRequestWithDetails,
         Repository,
         RepositoryFileWithLineMatches,
     )
+    from github_research_mcp.models.graphql.issue_or_pull_request import GqlIssueWithDetails, GqlPullRequestWithDetails
 
 
 def test_init():
@@ -478,149 +476,9 @@ assignees: ''\
         )
 
 
-class TestIssuesOrPullRequests:
-    async def test_get_issue(self, github_research_client: GitHubResearchClient, e2e_issue: E2EIssue):
-        issues_or_pull_requests: IssueOrPullRequestWithDetails = await github_research_client.get_issue_or_pull_request(
-            owner=e2e_issue.owner,
-            repo=e2e_issue.repo,
-            issue_or_pr_number=e2e_issue.issue_number,
-        )
-
-        assert dump_for_snapshot(issues_or_pull_requests) == snapshot(
-            {
-                "issue_or_pr": {
-                    "number": 14,
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/14",
-                    "title": "[FEATURE] Enhance `generate_philosophical_variable_name` with context",
-                    "body": """\
-## ✨ New Visions for the Digital Realm
-
-*"Every feature is a new path, a new possibility in the journey of code."*
-
-### Describe the Feature
-The `generate_philosophical_variable_name` function in `src/utils.py` currently replaces keywords or adds a generic philosophical prefix. This is a good start, but it could be enhanced to consider the *context* of the variable's usage within the code.
-
-For example, a variable named `count` in a loop might become `quantum_measurement_of_iteration`, while `count` in a database query might become `cosmic_tally_of_records`.
-
-### Why is this Feature Needed?
-Context-aware philosophical naming would provide more relevant and profound insights, deepening the existential coding experience. It moves beyond simple keyword replacement to a more nuanced understanding of the variable's role.
-
-### Proposed Solution
-- Modify `generate_philosophical_variable_name` to accept an additional `context` argument (e.g., the line of code where the variable is used, or the function it's within).
-- Implement logic to analyze the context and choose a more appropriate philosophical mapping or prefix.
-- This might involve simple regex matching for surrounding keywords (e.g., `for`, `while`, `db.query`).
-
-### Philosophical Reflection
-True understanding comes not just from the word itself, but from its relationship to the surrounding text. By considering context, we move closer to a holistic understanding of the code's essence, reflecting the interconnectedness of all things in the digital realm.
-
----
-
-*Remember: Every feature is a step towards a more enlightened digital future. Embrace the creation, and the wisdom will follow.*\
-""",
-                    "state": "OPEN",
-                    "is_pr": False,
-                    "author": {"user_type": "User", "login": "strawgate"},
-                    "author_association": "OWNER",
-                    "created_at": IsStr(),
-                    "updated_at": IsStr(),
-                    "labels": [],
-                    "assignees": [],
-                    "owner": "strawgate",
-                    "repository": "github-issues-e2e-test",
-                },
-                "comments": [],
-                "related": [],
-            }
-        )
-
-    async def test_get_issue_or_pull_request_missing(self, github_research_client: GitHubResearchClient, e2e_missing_issue: E2EIssue):
-        issues_or_pull_requests: IssueOrPullRequestWithDetails | None = await github_research_client.get_issue_or_pull_request(
-            owner=e2e_missing_issue.owner,
-            repo=e2e_missing_issue.repo,
-            issue_or_pr_number=e2e_missing_issue.issue_number,
-            error_on_not_found=False,
-        )
-
-        assert issues_or_pull_requests is None
-
-        with pytest.raises(ResourceNotFoundError) as e:
-            _ = await github_research_client.get_issue_or_pull_request(
-                owner=e2e_missing_issue.owner,
-                repo=e2e_missing_issue.repo,
-                issue_or_pr_number=e2e_missing_issue.issue_number,
-                error_on_not_found=True,
-            )
-
-        assert str(e.exconly()) == snapshot(
-            "github_research_mcp.clients.errors.github.ResourceNotFoundError: A request error occured. (action: Get GqlGetIssueOrPullRequestsWithDetails, message: The resource could not be found., graphql_errors: Could not resolve to an issue or pull request with the number of 100000.)"
-        )
-
-    async def test_get_pull_request(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
-        issues_or_pull_requests: IssueOrPullRequestWithDetails = await github_research_client.get_issue_or_pull_request(
-            owner=e2e_pull_request.owner,
-            repo=e2e_pull_request.repo,
-            issue_or_pr_number=e2e_pull_request.pull_request_number,
-        )
-
-        assert dump_for_snapshot(issues_or_pull_requests) == snapshot(
-            {
-                "issue_or_pr": {
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                    "number": 2,
-                    "title": "this is a test pull request",
-                    "body": """\
-it has a description\r
-\r
-it has a related issue #1\
-""",
-                    "state": "OPEN",
-                    "is_pr": True,
-                    "merged": False,
-                    "author": {"user_type": "User", "login": "strawgate"},
-                    "created_at": IsStr(),
-                    "updated_at": IsStr(),
-                    "labels": [{"name": "bug"}],
-                    "assignees": [{"user_type": "User", "login": "strawgate"}],
-                    "owner": "strawgate",
-                    "repository": "github-issues-e2e-test",
-                },
-                "diff": {
-                    "file_diffs": [
-                        {
-                            "path": "test.md",
-                            "status": "modified",
-                            "patch": """\
-@@ -1 +1,3 @@
- this is a test file
-+
-+this is a test modification\
-""",
-                            "truncated": False,
-                        }
-                    ]
-                },
-                "comments": [
-                    {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
-                        "body": "it also has a comment",
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": IsStr(),
-                        "updated_at": IsStr(),
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                        "issue_number": 2,
-                        "comment_id": 3259982958,
-                    }
-                ],
-                "related": [],
-            }
-        )
-
-
 class TestIssues:
     async def test_get_issue(self, github_research_client: GitHubResearchClient, e2e_issue: E2EIssue):
-        issues: IssueWithDetails = await github_research_client.get_issue(
+        issues: GqlIssueWithDetails = await github_research_client.get_issue(
             owner=e2e_issue.owner,
             repo=e2e_issue.repo,
             issue_number=1,
@@ -628,63 +486,46 @@ class TestIssues:
 
         assert dump_for_snapshot(issues) == snapshot(
             {
-                "issue": {
-                    "number": 1,
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/1",
-                    "title": "This is an issue",
-                    "body": "It has a description",
-                    "state": "OPEN",
-                    "is_pr": False,
-                    "author": {"user_type": "User", "login": "strawgate"},
-                    "author_association": "OWNER",
-                    "created_at": "2025-09-05T23:03:04+00:00",
-                    "updated_at": "2025-09-05T23:03:15+00:00",
-                    "labels": [{"name": "bug"}],
-                    "assignees": [{"user_type": "User", "login": "strawgate"}],
-                    "owner": "strawgate",
-                    "repository": "github-issues-e2e-test",
-                },
+                "number": 1,
+                "url": "https://github.com/strawgate/github-issues-e2e-test/issues/1",
+                "title": "This is an issue",
+                "body": "It has a description",
+                "state": "OPEN",
+                "is_pr": False,
+                "author": {"user_type": "User", "login": "strawgate"},
+                "author_association": "OWNER",
+                "created_at": "2025-09-05T23:03:04+00:00",
+                "updated_at": "2025-09-05T23:03:15+00:00",
+                "labels": [{"name": "bug"}],
+                "assignees": [{"user_type": "User", "login": "strawgate"}],
                 "comments": [
+                    {"body": "it also has a comment", "author": {"user_type": "User", "login": "strawgate"}, "author_association": "OWNER"}
+                ],
+                "timeline_items": [
                     {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/issues/1#issuecomment-3259977946",
-                        "body": "it also has a comment",
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-05T23:03:15+00:00",
-                        "updated_at": "2025-09-05T23:03:15+00:00",
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                        "issue_number": 1,
-                        "comment_id": 3259977946,
+                        "source": {
+                            "number": 2,
+                            "title": "this is a test pull request",
+                            "created_at": "2025-09-05T23:04:07+00:00",
+                            "state": "OPEN",
+                        }
                     }
                 ],
-                "related": [
-                    {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                        "number": 2,
-                        "title": "this is a test pull request",
-                        "body": """\
-it has a description\r
-\r
-it has a related issue #1\
-""",
-                        "state": "OPEN",
-                        "is_pr": True,
-                        "merged": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "created_at": "2025-09-05T23:04:07+00:00",
-                        "updated_at": "2025-09-05T23:04:24+00:00",
-                        "labels": [{"name": "bug"}],
-                        "assignees": [{"user_type": "User", "login": "strawgate"}],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    }
-                ],
+                "owner": "strawgate",
+                "repository": "github-issues-e2e-test",
             }
         )
 
+    async def test_get_issue_actually_pull_request(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
+        issue: GqlIssueWithDetails = await github_research_client.get_issue(
+            owner=e2e_pull_request.owner,
+            repo=e2e_pull_request.repo,
+            issue_number=e2e_pull_request.pull_request_number,
+        )
+        assert issue is None
+
     async def test_get_issue_missing(self, github_research_client: GitHubResearchClient, e2e_missing_issue: E2EIssue):
-        issues: IssueWithDetails | None = await github_research_client.get_issue(
+        issues: GqlIssueWithDetails | None = await github_research_client.get_issue(
             owner=e2e_missing_issue.owner,
             repo=e2e_missing_issue.repo,
             issue_number=e2e_missing_issue.issue_number,
@@ -702,22 +543,21 @@ it has a related issue #1\
             )
 
         assert str(e.exconly()) == snapshot(
-            "github_research_mcp.clients.errors.github.ResourceNotFoundError: A request error occured. (action: Get GqlGetIssueOrPullRequestsWithDetails, message: The resource could not be found., graphql_errors: Could not resolve to an issue or pull request with the number of 100000.)"
+            "github_research_mcp.clients.errors.github.ResourceNotFoundError: A request error occured. (action: Get GqlGetIssue, message: The resource could not be found., graphql_errors: Could not resolve to an issue or pull request with the number of 100000.)"
         )
 
     async def test_search_issues(self, github_research_client: GitHubResearchClient, e2e_issue: E2EIssue):
         issue_search_query: str = build_query(owner=e2e_issue.owner, repo=e2e_issue.repo, keywords={"quantitative"}, is_issue=True)
-        search_issues_result: list[IssueWithDetails] = await github_research_client.search_issues(
+        search_issues_result: list[GqlIssueWithDetails] = await github_research_client.search_issues(
             query=issue_search_query,
         )
         assert dump_list_for_snapshot(search_issues_result) == snapshot(
             [
                 {
-                    "issue": {
-                        "number": 29,
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/issues/29",
-                        "title": "[ENLIGHTENMENT] The Illusion of Progress: When Metrics Deceive",
-                        "body": """\
+                    "number": 29,
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/29",
+                    "title": "[ENLIGHTENMENT] The Illusion of Progress: When Metrics Deceive",
+                    "body": """\
 ## 🧘 Your Digital Enlightenment Journey
 
 *"Every developer's journey is unique, but the destination is the same: understanding."*
@@ -741,25 +581,24 @@ How do you define and measure 'progress' in your coding journey? What qualitativ
 
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
 """,
-                        "state": "OPEN",
-                        "is_pr": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-13T18:12:15+00:00",
-                        "updated_at": "2025-09-13T18:12:15+00:00",
-                        "labels": [],
-                        "assignees": [],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
+                    "state": "OPEN",
+                    "is_pr": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "author_association": "OWNER",
+                    "created_at": "2025-09-13T18:12:15+00:00",
+                    "updated_at": "2025-09-13T18:12:15+00:00",
+                    "labels": [],
+                    "assignees": [],
                     "comments": [],
-                    "related": [],
+                    "timeline_items": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
                 }
             ]
         )
 
     async def test_search_issues_by_keywords(self, github_research_client: GitHubResearchClient, e2e_issue: E2EIssue):
-        search_issues_result: list[IssueWithDetails] = await github_research_client.search_issues_by_keywords(
+        search_issues_result: list[GqlIssueWithDetails] = await github_research_client.search_issues_by_keywords(
             owner=e2e_issue.owner,
             repo=e2e_issue.repo,
             keywords={"philosophy"},
@@ -768,11 +607,10 @@ How do you define and measure 'progress' in your coding journey? What qualitativ
         assert dump_list_for_snapshot(search_issues_result) == snapshot(
             [
                 {
-                    "issue": {
-                        "number": 6,
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/issues/6",
-                        "title": "[ENLIGHTENMENT] The Illusion of Perfect Code",
-                        "body": """\
+                    "number": 6,
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/6",
+                    "title": "[ENLIGHTENMENT] The Illusion of Perfect Code",
+                    "body": """\
 ## 🧘 Your Digital Enlightenment Journey
 
 *"Every developer's journey is unique, but the destination is the same: understanding."*
@@ -796,19 +634,18 @@ How do others balance the desire for perfection with the need for progress? What
 
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
 """,
-                        "state": "OPEN",
-                        "is_pr": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-13T18:10:37+00:00",
-                        "updated_at": "2025-09-13T18:10:37+00:00",
-                        "labels": [],
-                        "assignees": [],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
+                    "state": "OPEN",
+                    "is_pr": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "author_association": "OWNER",
+                    "created_at": "2025-09-13T18:10:37+00:00",
+                    "updated_at": "2025-09-13T18:10:37+00:00",
+                    "labels": [],
+                    "assignees": [],
                     "comments": [],
-                    "related": [],
+                    "timeline_items": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
                 }
             ]
         )
@@ -816,7 +653,7 @@ How do others balance the desire for perfection with the need for progress? What
 
 class TestPullRequests:
     async def test_get_pull_request(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
-        pull_request: PullRequestWithDetails = await github_research_client.get_pull_request(
+        pull_request: GqlPullRequestWithDetails = await github_research_client.get_pull_request(
             owner=e2e_pull_request.owner,
             repo=e2e_pull_request.repo,
             pull_request_number=e2e_pull_request.pull_request_number,
@@ -824,46 +661,33 @@ class TestPullRequests:
 
         assert dump_for_snapshot(pull_request) == snapshot(
             {
-                "pull_request": {
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                    "number": 2,
-                    "title": "this is a test pull request",
-                    "body": """\
+                "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                "number": 2,
+                "title": "this is a test pull request",
+                "body": """\
 it has a description\r
 \r
 it has a related issue #1\
 """,
-                    "state": "OPEN",
-                    "is_pr": True,
-                    "merged": False,
-                    "author": {"user_type": "User", "login": "strawgate"},
-                    "created_at": "2025-09-05T23:04:07+00:00",
-                    "updated_at": "2025-09-05T23:04:24+00:00",
-                    "labels": [{"name": "bug"}],
-                    "assignees": [{"user_type": "User", "login": "strawgate"}],
-                    "owner": "strawgate",
-                    "repository": "github-issues-e2e-test",
-                },
+                "state": "OPEN",
+                "is_pr": True,
+                "merged": False,
+                "author": {"user_type": "User", "login": "strawgate"},
+                "created_at": "2025-09-05T23:04:07+00:00",
+                "updated_at": "2025-09-05T23:04:24+00:00",
+                "labels": [{"name": "bug"}],
+                "assignees": [{"user_type": "User", "login": "strawgate"}],
                 "comments": [
-                    {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
-                        "body": "it also has a comment",
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-05T23:04:24+00:00",
-                        "updated_at": "2025-09-05T23:04:24+00:00",
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                        "issue_number": 2,
-                        "comment_id": 3259982958,
-                    }
+                    {"body": "it also has a comment", "author": {"user_type": "User", "login": "strawgate"}, "author_association": "OWNER"}
                 ],
-                "related": [],
+                "timeline_items": [],
+                "owner": "strawgate",
+                "repository": "github-issues-e2e-test",
             }
         )
 
     async def test_get_pull_request_missing(self, github_research_client: GitHubResearchClient, e2e_missing_pull_request: E2EPullRequest):
-        pull_request: PullRequestWithDetails | None = await github_research_client.get_pull_request(
+        pull_request: GqlPullRequestWithDetails | None = await github_research_client.get_pull_request(
             owner=e2e_missing_pull_request.owner,
             repo=e2e_missing_pull_request.repo,
             pull_request_number=e2e_missing_pull_request.pull_request_number,
@@ -881,60 +705,51 @@ it has a related issue #1\
             )
 
         assert str(e.exconly()) == snapshot(
-            "github_research_mcp.clients.errors.github.ResourceNotFoundError: A request error occured. (action: Get GqlGetIssueOrPullRequestsWithDetails, message: The resource could not be found., graphql_errors: Could not resolve to an issue or pull request with the number of 100000.)"
+            "github_research_mcp.clients.errors.github.ResourceNotFoundError: A request error occured. (action: Get GqlGetPullRequest, message: The resource could not be found., graphql_errors: Could not resolve to an issue or pull request with the number of 100000.)"
         )
 
     async def test_search_pull_requests(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
         pull_request_search_query: str = build_query(
             owner=e2e_pull_request.owner, repo=e2e_pull_request.repo, keywords={"description"}, is_pull_request=True
         )
-        search_pull_requests_result: list[PullRequestWithDetails] = await github_research_client.search_pull_requests(
+        search_pull_requests_result: list[GqlPullRequestWithDetails] = await github_research_client.search_pull_requests(
             query=pull_request_search_query,
         )
         assert dump_list_for_snapshot(search_pull_requests_result) == snapshot(
             [
                 {
-                    "pull_request": {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                        "number": 2,
-                        "title": "this is a test pull request",
-                        "body": """\
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                    "number": 2,
+                    "title": "this is a test pull request",
+                    "body": """\
 it has a description\r
 \r
 it has a related issue #1\
 """,
-                        "state": "OPEN",
-                        "is_pr": True,
-                        "merged": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "created_at": "2025-09-05T23:04:07+00:00",
-                        "updated_at": "2025-09-05T23:04:24+00:00",
-                        "labels": [{"name": "bug"}],
-                        "assignees": [{"user_type": "User", "login": "strawgate"}],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
+                    "state": "OPEN",
+                    "is_pr": True,
+                    "merged": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "created_at": "2025-09-05T23:04:07+00:00",
+                    "updated_at": "2025-09-05T23:04:24+00:00",
+                    "labels": [{"name": "bug"}],
+                    "assignees": [{"user_type": "User", "login": "strawgate"}],
                     "comments": [
                         {
-                            "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
                             "body": "it also has a comment",
                             "author": {"user_type": "User", "login": "strawgate"},
                             "author_association": "OWNER",
-                            "created_at": "2025-09-05T23:04:24+00:00",
-                            "updated_at": "2025-09-05T23:04:24+00:00",
-                            "owner": "strawgate",
-                            "repository": "github-issues-e2e-test",
-                            "issue_number": 2,
-                            "comment_id": 3259982958,
                         }
                     ],
-                    "related": [],
+                    "timeline_items": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
                 }
             ]
         )
 
     async def test_search_pull_requests_by_keywords(self, github_research_client: GitHubResearchClient, e2e_pull_request: E2EPullRequest):
-        search_pull_requests_result: list[PullRequestWithDetails] = await github_research_client.search_pull_requests_by_keywords(
+        search_pull_requests_result: list[GqlPullRequestWithDetails] = await github_research_client.search_pull_requests_by_keywords(
             owner=e2e_pull_request.owner,
             repo=e2e_pull_request.repo,
             keywords={"description"},
@@ -943,41 +758,32 @@ it has a related issue #1\
         assert dump_list_for_snapshot(search_pull_requests_result) == snapshot(
             [
                 {
-                    "pull_request": {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                        "number": 2,
-                        "title": "this is a test pull request",
-                        "body": """\
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                    "number": 2,
+                    "title": "this is a test pull request",
+                    "body": """\
 it has a description\r
 \r
 it has a related issue #1\
 """,
-                        "state": "OPEN",
-                        "is_pr": True,
-                        "merged": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "created_at": "2025-09-05T23:04:07+00:00",
-                        "updated_at": "2025-09-05T23:04:24+00:00",
-                        "labels": [{"name": "bug"}],
-                        "assignees": [{"user_type": "User", "login": "strawgate"}],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
+                    "state": "OPEN",
+                    "is_pr": True,
+                    "merged": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "created_at": "2025-09-05T23:04:07+00:00",
+                    "updated_at": "2025-09-05T23:04:24+00:00",
+                    "labels": [{"name": "bug"}],
+                    "assignees": [{"user_type": "User", "login": "strawgate"}],
                     "comments": [
                         {
-                            "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
                             "body": "it also has a comment",
                             "author": {"user_type": "User", "login": "strawgate"},
                             "author_association": "OWNER",
-                            "created_at": "2025-09-05T23:04:24+00:00",
-                            "updated_at": "2025-09-05T23:04:24+00:00",
-                            "owner": "strawgate",
-                            "repository": "github-issues-e2e-test",
-                            "issue_number": 2,
-                            "comment_id": 3259982958,
                         }
                     ],
-                    "related": [],
+                    "timeline_items": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
                 }
             ]
         )

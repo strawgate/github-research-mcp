@@ -1,4 +1,5 @@
 from collections.abc import AsyncGenerator
+from json import dumps
 from typing import TYPE_CHECKING, Any
 
 import pytest
@@ -128,11 +129,10 @@ async def test_get_issue(research_mcp_client: Client[FastMCPTransport], e2e_issu
     assert dump_structured_content_for_snapshot(result) == snapshot(
         {
             "result": {
-                "issue": {
-                    "number": 14,
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/14",
-                    "title": "[FEATURE] Enhance `generate_philosophical_variable_name` with context",
-                    "body": """\
+                "number": 14,
+                "url": "https://github.com/strawgate/github-issues-e2e-test/issues/14",
+                "title": "[FEATURE] Enhance `generate_philosophical_variable_name` with context",
+                "body": """\
 ## ✨ New Visions for the Digital Realm
 
 *"Every feature is a new path, a new possibility in the journey of code."*
@@ -157,21 +157,20 @@ True understanding comes not just from the word itself, but from its relationshi
 
 *Remember: Every feature is a step towards a more enlightened digital future. Embrace the creation, and the wisdom will follow.*\
 """,
-                    "state": "OPEN",
-                    "state_reason": None,
-                    "is_pr": False,
-                    "author": {"user_type": "User", "login": "strawgate"},
-                    "author_association": "OWNER",
-                    "created_at": "2025-09-13T18:11:09+00:00",
-                    "updated_at": "2025-09-13T18:11:09+00:00",
-                    "closed_at": None,
-                    "labels": [],
-                    "assignees": [],
-                    "owner": "strawgate",
-                    "repository": "github-issues-e2e-test",
-                },
+                "state": "OPEN",
+                "state_reason": None,
+                "is_pr": False,
+                "author": {"user_type": "User", "login": "strawgate"},
+                "author_association": "OWNER",
+                "created_at": "2025-09-13T18:11:09+00:00",
+                "updated_at": "2025-09-13T18:11:09+00:00",
+                "closed_at": None,
+                "labels": [],
+                "assignees": [],
                 "comments": [],
-                "related": [],
+                "timeline_items": [],
+                "owner": "strawgate",
+                "repository": "github-issues-e2e-test",
             }
         }
     )
@@ -189,44 +188,31 @@ async def test_get_pull_request(research_mcp_client: Client[FastMCPTransport], e
     assert dump_structured_content_for_snapshot(result) == snapshot(
         {
             "result": {
-                "pull_request": {
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                    "number": 2,
-                    "title": "this is a test pull request",
-                    "body": """\
+                "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                "number": 2,
+                "title": "this is a test pull request",
+                "body": """\
 it has a description\r
 \r
 it has a related issue #1\
 """,
-                    "state": "OPEN",
-                    "is_pr": True,
-                    "merged": False,
-                    "author": {"user_type": "User", "login": "strawgate"},
-                    "created_at": "2025-09-05T23:04:07+00:00",
-                    "updated_at": "2025-09-05T23:04:24+00:00",
-                    "closed_at": None,
-                    "merged_at": None,
-                    "merge_commit": None,
-                    "labels": [{"name": "bug"}],
-                    "assignees": [{"user_type": "User", "login": "strawgate"}],
-                    "owner": "strawgate",
-                    "repository": "github-issues-e2e-test",
-                },
+                "state": "OPEN",
+                "is_pr": True,
+                "merged": False,
+                "author": {"user_type": "User", "login": "strawgate"},
+                "created_at": "2025-09-05T23:04:07+00:00",
+                "updated_at": "2025-09-05T23:04:24+00:00",
+                "closed_at": None,
+                "merged_at": None,
+                "merge_commit": None,
+                "labels": [{"name": "bug"}],
+                "assignees": [{"user_type": "User", "login": "strawgate"}],
                 "comments": [
-                    {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
-                        "body": "it also has a comment",
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-05T23:04:24+00:00",
-                        "updated_at": "2025-09-05T23:04:24+00:00",
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                        "issue_number": 2,
-                        "comment_id": 3259982958,
-                    }
+                    {"body": "it also has a comment", "author": {"user_type": "User", "login": "strawgate"}, "author_association": "OWNER"}
                 ],
-                "related": [],
+                "timeline_items": [],
+                "owner": "strawgate",
+                "repository": "github-issues-e2e-test",
             }
         }
     )
@@ -410,11 +396,10 @@ async def test_search_issues(research_mcp_client: Client[FastMCPTransport], e2e_
         {
             "result": [
                 {
-                    "issue": {
-                        "number": 6,
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/issues/6",
-                        "title": "[ENLIGHTENMENT] The Illusion of Perfect Code",
-                        "body": """\
+                    "number": 6,
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/issues/6",
+                    "title": "[ENLIGHTENMENT] The Illusion of Perfect Code",
+                    "body": """\
 ## 🧘 Your Digital Enlightenment Journey
 
 *"Every developer's journey is unique, but the destination is the same: understanding."*
@@ -438,25 +423,36 @@ How do others balance the desire for perfection with the need for progress? What
 
 *Remember: Every journey is valid, every insight is valuable, and every step forward is progress on the path to digital enlightenment.*\
 """,
-                        "state": "OPEN",
-                        "state_reason": None,
-                        "is_pr": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "author_association": "OWNER",
-                        "created_at": "2025-09-13T18:10:37+00:00",
-                        "updated_at": "2025-09-13T18:10:37+00:00",
-                        "closed_at": None,
-                        "labels": [],
-                        "assignees": [],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
+                    "state": "OPEN",
+                    "state_reason": None,
+                    "is_pr": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "author_association": "OWNER",
+                    "created_at": "2025-09-13T18:10:37+00:00",
+                    "updated_at": "2025-09-13T18:10:37+00:00",
+                    "closed_at": None,
+                    "labels": [],
+                    "assignees": [],
                     "comments": [],
-                    "related": [],
+                    "timeline_items": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
                 }
             ]
         }
     )
+
+
+async def test_search_issues_fastmcp(research_mcp_client: Client[FastMCPTransport]) -> None:
+    result: CallToolResult = await research_mcp_client.call_tool(
+        "search_issues",
+        arguments={"owner": "jlowin", "repo": "fastmcp", "keywords": ["logging", "middleware"]},
+    )
+
+    dumped_result = dump_structured_content_for_snapshot(result)
+
+    result_length = len(dumps(dumped_result))
+    assert result_length < 100000
 
 
 async def test_search_pull_requests(research_mcp_client: Client[FastMCPTransport], e2e_repository: E2ERepository) -> None:
@@ -468,44 +464,35 @@ async def test_search_pull_requests(research_mcp_client: Client[FastMCPTransport
         {
             "result": [
                 {
-                    "pull_request": {
-                        "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
-                        "number": 2,
-                        "title": "this is a test pull request",
-                        "body": """\
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2",
+                    "number": 2,
+                    "title": "this is a test pull request",
+                    "body": """\
 it has a description\r
 \r
 it has a related issue #1\
 """,
-                        "state": "OPEN",
-                        "is_pr": True,
-                        "merged": False,
-                        "author": {"user_type": "User", "login": "strawgate"},
-                        "created_at": "2025-09-05T23:04:07+00:00",
-                        "updated_at": "2025-09-05T23:04:24+00:00",
-                        "closed_at": None,
-                        "merged_at": None,
-                        "merge_commit": None,
-                        "labels": [{"name": "bug"}],
-                        "assignees": [{"user_type": "User", "login": "strawgate"}],
-                        "owner": "strawgate",
-                        "repository": "github-issues-e2e-test",
-                    },
+                    "state": "OPEN",
+                    "is_pr": True,
+                    "merged": False,
+                    "author": {"user_type": "User", "login": "strawgate"},
+                    "created_at": "2025-09-05T23:04:07+00:00",
+                    "updated_at": "2025-09-05T23:04:24+00:00",
+                    "closed_at": None,
+                    "merged_at": None,
+                    "merge_commit": None,
+                    "labels": [{"name": "bug"}],
+                    "assignees": [{"user_type": "User", "login": "strawgate"}],
                     "comments": [
                         {
-                            "url": "https://github.com/strawgate/github-issues-e2e-test/pull/2#issuecomment-3259982958",
                             "body": "it also has a comment",
                             "author": {"user_type": "User", "login": "strawgate"},
                             "author_association": "OWNER",
-                            "created_at": "2025-09-05T23:04:24+00:00",
-                            "updated_at": "2025-09-05T23:04:24+00:00",
-                            "owner": "strawgate",
-                            "repository": "github-issues-e2e-test",
-                            "issue_number": 2,
-                            "comment_id": 3259982958,
                         }
                     ],
-                    "related": [],
+                    "timeline_items": [],
+                    "owner": "strawgate",
+                    "repository": "github-issues-e2e-test",
                 }
             ]
         }

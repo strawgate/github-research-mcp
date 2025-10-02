@@ -18,19 +18,19 @@ from pydantic import BaseModel
 from github_research_mcp.clients.errors.github import RequestError, ResourceNotFoundError, ResourceTypeMismatchError
 from github_research_mcp.clients.models.github import (
     GitReference,
-    IssueOrPullRequestWithDetails,
-    IssueWithDetails,
     PullRequestDiff,
-    PullRequestWithDetails,
     Repository,
     RepositoryFileWithContent,
     RepositoryFileWithLineMatches,
 )
-from github_research_mcp.models.graphql.fragments import Issue, PullRequest
-from github_research_mcp.models.graphql.queries import (
-    BaseGqlQuery,
-    GqlGetIssueOrPullRequestsWithDetails,
-    GqlSearchIssueOrPullRequestsWithDetails,
+from github_research_mcp.models.graphql.base import BaseGqlQuery
+from github_research_mcp.models.graphql.issue_or_pull_request import (
+    GqlGetIssue,
+    GqlGetPullRequest,
+    GqlIssueWithDetails,
+    GqlPullRequestWithDetails,
+    GqlSearchIssues,
+    GqlSearchPullRequests,
 )
 from github_research_mcp.models.repository.tree import FilteredRepositoryTree, PrunedRepositoryTree, RepositoryTree
 
@@ -43,7 +43,6 @@ if TYPE_CHECKING:
 NOT_FOUND_ERROR = 404
 
 GITHUBKIT_RESPONSE_TYPE = BaseModel | Sequence[BaseModel]
-# GITHUBKIT_RESPONSE = TypeVar("GITHUBKIT_RESPONSE", bound=BaseModel | Sequence[BaseModel])
 
 
 def escape_keywords(keywords: set[str]) -> list[str]:
@@ -112,12 +111,12 @@ def get_githubkit_client() -> GitHubKit[Any]:
     return GitHubKit[TokenAuthStrategy](auth=TokenAuthStrategy(token=get_github_token()), auto_retry=retry_chain)
 
 
-DEFAULT_ISSUE_COMMENTS_LIMIT = 10
+DEFAULT_ISSUE_COMMENTS_LIMIT = 5
 DEFAULT_ISSUE_RELATED_ITEMS_LIMIT = 5
-DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT = 50
+DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT = 25
 
-DEFAULT_TRUNCATE_LINES = 500
-DEFAULT_TRUNCATE_CHARACTERS = 25000
+DEFAULT_TRUNCATE_LINES = 300
+DEFAULT_TRUNCATE_CHARACTERS = 4000
 
 DEFAULT_FIND_FILES_LIMIT = 100
 
@@ -333,190 +332,114 @@ class GitHubResearchClient:
         return None
 
     @overload
-    async def get_issue_or_pull_request(
+    async def get_issue(
         self,
-        *,
         owner: str,
         repo: str,
-        issue_or_pr_number: int,
+        issue_number: int,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
         error_on_not_found: Literal[True] = True,
-    ) -> IssueOrPullRequestWithDetails: ...
+    ) -> GqlIssueWithDetails: ...
 
     @overload
-    async def get_issue_or_pull_request(
+    async def get_issue(
         self,
-        *,
         owner: str,
         repo: str,
-        issue_or_pr_number: int,
+        issue_number: int,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
         error_on_not_found: Literal[False] = False,
-    ) -> IssueOrPullRequestWithDetails | None: ...
+    ) -> GqlIssueWithDetails | None: ...
 
-    async def get_issue_or_pull_request(
+    async def get_issue(
         self,
-        *,
         owner: str,
         repo: str,
-        issue_or_pr_number: int,
+        issue_number: int,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
         error_on_not_found: bool = False,
-    ) -> IssueOrPullRequestWithDetails | None:
-        """Get information (body, comments, related issues and pull requests) about a specific issue or pull request in the repository."""
+    ) -> GqlIssueWithDetails | None:
+        """Get an issue."""
 
-        query_variables = GqlGetIssueOrPullRequestsWithDetails.to_graphql_query_variables(
+        query_variables = GqlGetIssue.to_graphql_query_variables(
             owner=owner,
             repo=repo,
-            issue_or_pr_number=issue_or_pr_number,
+            issue_number=issue_number,
             limit_comments=limit_comments,
             limit_events=limit_related_items,
         )
 
-        gql_get_issue_or_pull_requests_with_details: GqlGetIssueOrPullRequestsWithDetails | None = await self._perform_graphql_query(
-            query_model=GqlGetIssueOrPullRequestsWithDetails,
+        gql_get_issue: GqlGetIssue | None = await self._perform_graphql_query(
+            query_model=GqlGetIssue,
             variables=query_variables,
             error_on_not_found=error_on_not_found,
         )
 
-        if not gql_get_issue_or_pull_requests_with_details:
+        if not gql_get_issue:
             return None
 
-        issue_or_pull_request_with_details: IssueOrPullRequestWithDetails = (
-            IssueOrPullRequestWithDetails.from_gql_get_issue_or_pull_requests_with_details(
-                gql_get_issue_or_pull_requests_with_details=gql_get_issue_or_pull_requests_with_details,
-            )
-        )
+        if not gql_get_issue.repository.issue and error_on_not_found:
+            raise ResourceNotFoundError(action="Get issue", resource=f"{owner}/{repo}/{issue_number}")
 
-        if isinstance(issue_or_pull_request_with_details.issue_or_pr, PullRequest) and include_pull_request_diff:
-            pull_request_diff = await self.get_pull_request_diff(
-                owner=owner,
-                repo=repo,
-                pull_request_number=issue_or_pull_request_with_details.issue_or_pr.number,
-            )
-            issue_or_pull_request_with_details.diff = pull_request_diff
-
-        return issue_or_pull_request_with_details
+        return gql_get_issue.repository.issue
 
     @overload
-    async def get_issue(
+    async def get_pull_request(
         self,
         owner: str,
         repo: str,
-        issue_number: int,
+        pull_request_number: int,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
         error_on_not_found: Literal[True] = True,
-    ) -> IssueWithDetails: ...
+    ) -> GqlPullRequestWithDetails: ...
 
     @overload
-    async def get_issue(
+    async def get_pull_request(
         self,
         owner: str,
         repo: str,
-        issue_number: int,
+        pull_request_number: int,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
         error_on_not_found: Literal[False] = False,
-    ) -> IssueWithDetails | None: ...
+    ) -> GqlPullRequestWithDetails | None: ...
 
-    async def get_issue(
+    async def get_pull_request(
         self,
         owner: str,
         repo: str,
-        issue_number: int,
+        pull_request_number: int,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
         error_on_not_found: bool = False,
-    ) -> IssueWithDetails | None:
-        """Get an issue."""
-
-        if issue_or_pull_request_with_details := await self.get_issue_or_pull_request(
-            owner=owner,
-            repo=repo,
-            issue_or_pr_number=issue_number,
-            limit_comments=limit_comments,
-            limit_related_items=limit_related_items,
-            error_on_not_found=error_on_not_found,
-        ):
-            if not isinstance(issue_or_pull_request_with_details.issue_or_pr, Issue):
-                raise ResourceTypeMismatchError(
-                    action="Get issue",
-                    resource=str(issue_number),
-                    expected_type=Issue,
-                    actual_type=type(issue_or_pull_request_with_details.issue_or_pr),
-                )
-
-            return IssueWithDetails.from_issue_or_pull_request_with_details(
-                issue_or_pull_request_with_details=issue_or_pull_request_with_details
-            )
-
-        return None
-
-    @overload
-    async def get_pull_request(
-        self,
-        owner: str,
-        repo: str,
-        pull_request_number: int,
-        limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
-        limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
-        error_on_not_found: Literal[True] = True,
-    ) -> PullRequestWithDetails: ...
-
-    @overload
-    async def get_pull_request(
-        self,
-        owner: str,
-        repo: str,
-        pull_request_number: int,
-        limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
-        limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
-        error_on_not_found: Literal[False] = False,
-    ) -> PullRequestWithDetails | None: ...
-
-    async def get_pull_request(
-        self,
-        owner: str,
-        repo: str,
-        pull_request_number: int,
-        limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
-        limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
-        error_on_not_found: bool = False,
-    ) -> PullRequestWithDetails | None:
+    ) -> GqlPullRequestWithDetails | None:
         """Get a pull request."""
 
-        if pull_request_with_details := await self.get_issue_or_pull_request(
+        query_variables = GqlGetPullRequest.to_graphql_query_variables(
             owner=owner,
             repo=repo,
-            issue_or_pr_number=pull_request_number,
+            pull_request_number=pull_request_number,
             limit_comments=limit_comments,
-            limit_related_items=limit_related_items,
-            include_pull_request_diff=include_pull_request_diff,
+            limit_events=limit_related_items,
+        )
+
+        gql_get_pull_request: GqlGetPullRequest | None = await self._perform_graphql_query(
+            query_model=GqlGetPullRequest,
+            variables=query_variables,
             error_on_not_found=error_on_not_found,
-        ):
-            if not isinstance(pull_request_with_details.issue_or_pr, PullRequest):
-                raise ResourceTypeMismatchError(
-                    action="Get pull request",
-                    resource=str(pull_request_number),
-                    expected_type=PullRequest,
-                    actual_type=type(pull_request_with_details.issue_or_pr),
-                )
+        )
 
-            return PullRequestWithDetails.from_issue_or_pull_request_with_details(
-                issue_or_pull_request_with_details=pull_request_with_details
-            )
+        if not gql_get_pull_request:
+            return None
 
-        return None
+        if not gql_get_pull_request.repository.pull_request and error_on_not_found:
+            raise ResourceNotFoundError(action="Get pull request", resource=f"{owner}/{repo}/{pull_request_number}")
+
+        return gql_get_pull_request.repository.pull_request
 
     @overload
     async def get_pull_request_diff(
@@ -839,45 +762,22 @@ class GitHubResearchClient:
         limit_pull_requests: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
-    ) -> list[PullRequestWithDetails]:
+    ) -> list[GqlPullRequestWithDetails]:
         """Search for pull requests in a repository by the provided Search Query."""
 
-        gql_search_issue_or_pull_requests_with_details: GqlSearchIssueOrPullRequestsWithDetails = await self._perform_graphql_query(
-            query_model=GqlSearchIssueOrPullRequestsWithDetails,
-            variables=GqlSearchIssueOrPullRequestsWithDetails.to_graphql_query_variables(
-                query=query,
-                limit_issues_or_pull_requests=limit_pull_requests,
-                limit_comments=limit_comments,
-                limit_events=limit_related_items,
-            ),
+        query_variables = GqlSearchPullRequests.to_graphql_query_variables(
+            query=query,
+            limit_pull_requests=limit_pull_requests,
+            limit_comments=limit_comments,
+            limit_events=limit_related_items,
         )
 
-        issues_or_pull_requests_with_details: list[IssueOrPullRequestWithDetails] = (
-            IssueOrPullRequestWithDetails.from_gql_search_issue_or_pull_requests_with_details(
-                gql_search_issue_or_pull_requests_with_details=gql_search_issue_or_pull_requests_with_details
-            )
+        gql_search_pull_requests: GqlSearchPullRequests = await self._perform_graphql_query(
+            query_model=GqlSearchPullRequests,
+            variables=query_variables,
         )
 
-        if include_pull_request_diff:
-            for issue_or_pull_request_with_details in issues_or_pull_requests_with_details:
-                if isinstance(issue_or_pull_request_with_details.issue_or_pr, PullRequest):
-                    pull_request_diff = await self.get_pull_request_diff(
-                        owner=issue_or_pull_request_with_details.issue_or_pr.owner,
-                        repo=issue_or_pull_request_with_details.issue_or_pr.repository,
-                        pull_request_number=issue_or_pull_request_with_details.issue_or_pr.number,
-                    )
-                    issue_or_pull_request_with_details.diff = pull_request_diff
-
-        pull_requests: list[PullRequestWithDetails] = [
-            PullRequestWithDetails.from_issue_or_pull_request_with_details(
-                issue_or_pull_request_with_details=issue_or_pull_request_with_details
-            )
-            for issue_or_pull_request_with_details in issues_or_pull_requests_with_details
-            if isinstance(issue_or_pull_request_with_details.issue_or_pr, PullRequest)
-        ]
-
-        return pull_requests
+        return gql_search_pull_requests.search
 
     async def search_pull_requests_by_keywords(
         self,
@@ -888,8 +788,7 @@ class GitHubResearchClient:
         limit_pull_requests: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-        include_pull_request_diff: bool = True,
-    ) -> list[PullRequestWithDetails]:
+    ) -> list[GqlPullRequestWithDetails]:
         """Search for pull requests in a repository by the provided keywords.
 
         Args:
@@ -900,7 +799,6 @@ class GitHubResearchClient:
             limit_pull_requests: The maximum number of pull requests to include in the search results.
             limit_comments: The maximum number of comments to include in the search results.
             limit_related_items: The maximum number of related items to include in the search results.
-            include_pull_request_diff: Whether to include the diff of the pull request in the search results.
         """
 
         query: str = build_query(
@@ -917,7 +815,6 @@ class GitHubResearchClient:
             limit_pull_requests=limit_pull_requests,
             limit_comments=limit_comments,
             limit_related_items=limit_related_items,
-            include_pull_request_diff=include_pull_request_diff,
         )
 
     async def search_issues(
@@ -926,32 +823,22 @@ class GitHubResearchClient:
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-    ) -> list[IssueWithDetails]:
+    ) -> list[GqlIssueWithDetails]:
         """Search for issues in a repository using the provided Search Query."""
 
-        gql_search_issue_or_pull_requests_with_details: GqlSearchIssueOrPullRequestsWithDetails = await self._perform_graphql_query(
-            query_model=GqlSearchIssueOrPullRequestsWithDetails,
-            variables=GqlSearchIssueOrPullRequestsWithDetails.to_graphql_query_variables(
-                query=query,
-                limit_issues_or_pull_requests=limit_issues,
-                limit_comments=limit_comments,
-                limit_events=limit_related_items,
-            ),
+        query_variables = GqlSearchIssues.to_graphql_query_variables(
+            query=query,
+            limit_issues=limit_issues,
+            limit_comments=limit_comments,
+            limit_events=limit_related_items,
         )
 
-        issues_or_pull_requests_with_details: list[IssueOrPullRequestWithDetails] = (
-            IssueOrPullRequestWithDetails.from_gql_search_issue_or_pull_requests_with_details(
-                gql_search_issue_or_pull_requests_with_details=gql_search_issue_or_pull_requests_with_details
-            )
+        gql_search_issues: GqlSearchIssues = await self._perform_graphql_query(
+            query_model=GqlSearchIssues,
+            variables=query_variables,
         )
 
-        issues: list[IssueWithDetails] = [
-            IssueWithDetails.from_issue_or_pull_request_with_details(issue_or_pull_request_with_details=issue_or_pull_request_with_details)
-            for issue_or_pull_request_with_details in issues_or_pull_requests_with_details
-            if isinstance(issue_or_pull_request_with_details.issue_or_pr, Issue)
-        ]
-
-        return issues
+        return gql_search_issues.search
 
     async def search_issues_by_keywords(
         self,
@@ -962,7 +849,7 @@ class GitHubResearchClient:
         limit_issues: int = DEFAULT_ISSUES_OR_PULL_REQUESTS_LIMIT,
         limit_comments: int = DEFAULT_ISSUE_COMMENTS_LIMIT,
         limit_related_items: int = DEFAULT_ISSUE_RELATED_ITEMS_LIMIT,
-    ) -> list[IssueWithDetails]:
+    ) -> list[GqlIssueWithDetails]:
         """Search for issues in a repository by the provided keywords.
 
         Args:

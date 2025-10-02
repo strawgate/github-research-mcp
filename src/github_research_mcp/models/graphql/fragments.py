@@ -6,6 +6,8 @@ from urllib.parse import urlparse
 from pydantic import BaseModel, Field, computed_field, field_serializer, field_validator
 from pydantic.aliases import AliasChoices
 
+from github_research_mcp.models.graphql.base import extract_nodes
+
 
 def owner_repository_from_url(url: str) -> tuple[str, str]:
     """Get owner and repository from URL."""
@@ -55,15 +57,6 @@ def dedent_set(fragments: set[str]) -> set[str]:
     return {dedent(text=fragment) for fragment in fragments}
 
 
-def extract_nodes(value: Any) -> list[Any] | Any:
-    if isinstance(value, dict):
-        nodes = value.get("nodes")
-        if isinstance(nodes, list):
-            return nodes
-
-    return value
-
-
 MAX_BODY_LENGTH = 2000
 MAX_COMMENT_BODY_LENGTH = 1000
 
@@ -86,10 +79,6 @@ def trim_body(body: str, max_length: int = MAX_BODY_LENGTH) -> str:
 def trim_comment_body(body: str, max_length: int = MAX_COMMENT_BODY_LENGTH) -> str:
     """If the body is longer than the max length, we take the first max_length / 2 characters and the last max_length / 2 characters."""
     return trim_body(body, max_length)
-
-
-class Nodes[T](BaseModel):
-    nodes: list[T]
 
 
 class Actor(BaseModel):
@@ -224,7 +213,7 @@ class Issue(BaseModel):
 
     @field_validator("labels", "assignees", mode="before")
     @classmethod
-    def flatten_labels_and_assignees(cls, value: Any) -> Any:
+    def flatten_labels_and_assignees(cls, value: Any) -> Any:  # pyright: ignore[reportAny]
         return extract_nodes(value)
 
     @field_serializer("created_at", "updated_at", "closed_at")
@@ -307,7 +296,7 @@ class PullRequest(BaseModel):
 
     @field_validator("labels", "assignees", mode="before")
     @classmethod
-    def flatten_labels_and_assignees(cls, value: Any) -> Any:
+    def flatten_labels_and_assignees(cls, value: Any) -> Any:  # pyright: ignore[reportAny]
         return extract_nodes(value)
 
     @field_serializer("created_at", "updated_at", "closed_at", "merged_at")
@@ -352,28 +341,28 @@ class PullRequest(BaseModel):
         return {dedent(text=fragment), *Actor.graphql_fragments(), *Label.graphql_fragments()}
 
 
-class TimelineItem(BaseModel):
-    actor: Actor
-    created_at: datetime = Field(validation_alias="createdAt")
-    source: Issue | PullRequest = Field(validation_alias=AliasChoices("source", "subject"))
+# class TimelineItem(BaseModel):
+#     actor: Actor
+#     created_at: datetime = Field(validation_alias="createdAt")
+#     source: Issue | PullRequest = Field(validation_alias=AliasChoices("source", "subject"))
 
-    @field_serializer("created_at")
-    def serialize_datetime(self, value: datetime | None) -> str | None:
-        if value is None:
-            return None
-        return value.isoformat()
+#     @field_serializer("created_at")
+#     def serialize_datetime(self, value: datetime | None) -> str | None:
+#         if value is None:
+#             return None
+#         return value.isoformat()
 
-    @staticmethod
-    def graphql_fragments() -> set[str]:
-        return {*Actor.graphql_fragments(), *Issue.graphql_fragments(), *PullRequest.graphql_fragments()}
+#     @staticmethod
+#     def graphql_fragments() -> set[str]:
+#         return {*Actor.graphql_fragments(), *Issue.graphql_fragments(), *PullRequest.graphql_fragments()}
 
 
-class ChangedFile(BaseModel):
-    path: str
-    additions: int
-    deletions: int
-    change_type: str = Field(validation_alias="changeType")
+# class ChangedFile(BaseModel):
+#     path: str
+#     additions: int
+#     deletions: int
+#     change_type: str = Field(validation_alias="changeType")
 
-    @staticmethod
-    def graphql_fragments() -> set[str]:
-        return {*Actor.graphql_fragments(), *Issue.graphql_fragments(), *PullRequest.graphql_fragments()}
+#     @staticmethod
+#     def graphql_fragments() -> set[str]:
+#         return {*Actor.graphql_fragments(), *Issue.graphql_fragments(), *PullRequest.graphql_fragments()}
