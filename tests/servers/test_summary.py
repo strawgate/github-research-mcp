@@ -102,6 +102,7 @@ async def test_summarize_repository(summary_mcp_client: Client[FastMCPTransport]
     write_summary_to_file(summary=summary, owner=e2e_repository.owner, repo=e2e_repository.repo)
 
 
+@pytest.mark.skip_on_ci
 async def test_summarize_repository_elastic_beats(summary_mcp_client: Client[FastMCPTransport]) -> None:
     owner = "elastic"
     repo = "beats"
@@ -117,6 +118,7 @@ async def test_summarize_repository_elastic_beats(summary_mcp_client: Client[Fas
     write_summary_to_file(summary=summary, owner=owner, repo=repo)
 
 
+@pytest.mark.skip_on_ci
 async def test_summarize_repository_elastic_elasticsearch(summary_mcp_client: Client[FastMCPTransport]) -> None:
     owner = "elastic"
     repo = "elasticsearch"
@@ -132,6 +134,7 @@ async def test_summarize_repository_elastic_elasticsearch(summary_mcp_client: Cl
     write_summary_to_file(summary=summary, owner=owner, repo=repo)
 
 
+@pytest.mark.skip_on_ci
 async def test_summarize_repository_elastic_kibana(summary_mcp_client: Client[FastMCPTransport]) -> None:
     owner = "elastic"
     repo = "kibana"

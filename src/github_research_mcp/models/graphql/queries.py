@@ -20,7 +20,7 @@ class GqlIssueWithDetails(Issue):
         return {*base_fragments, *Comment.graphql_fragments(), *TimelineItem.graphql_fragments()}
 
     def to_issue(self) -> Issue:
-        return Issue(**self.model_dump())
+        return Issue(**self.model_dump())  # pyright: ignore[reportAny]
 
 
 class GqlPullRequestWithDetails(PullRequest):
@@ -33,7 +33,7 @@ class GqlPullRequestWithDetails(PullRequest):
         return {*PullRequest.graphql_fragments(), *Comment.graphql_fragments(), *TimelineItem.graphql_fragments()}
 
     def to_pull_request(self) -> PullRequest:
-        return PullRequest(**self.model_dump())
+        return PullRequest(**self.model_dump())  # pyright: ignore[reportAny]
 
 
 class GqlGetIssuesWithDetailsRepository(BaseModel):

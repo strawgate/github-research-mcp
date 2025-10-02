@@ -1,6 +1,6 @@
 import base64
 from datetime import datetime
-from typing import Literal, Self
+from typing import ClassVar, Literal, Self
 
 from fastmcp.utilities.logging import get_logger
 from githubkit.versions.v2022_11_28.models import CodeSearchResultItem as GitHubKitCodeSearchResultItem
@@ -84,7 +84,7 @@ def try_decode_base64_utf8(content: bytes) -> str | None:
 class Repository(BaseModel):
     """A repository."""
 
-    model_config = ConfigDict(extra="forbid", frozen=True)
+    model_config: ClassVar[ConfigDict] = ConfigDict(extra="forbid", frozen=True)
 
     name: str = Field(description="The name of the repository.")
     description: str | None = Field(description="The description of the repository.")

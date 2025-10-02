@@ -229,7 +229,7 @@ class GitHubResearchClient:
         error_on_not_found: Literal[False] = False,
         *,
         method: Callable[..., Awaitable[GitHubKitResponse[T]]],
-        **request_args: Any,
+        **request_args: Any,  # pyright: ignore[reportAny]
     ) -> T | None: ...
 
     @overload
@@ -242,7 +242,7 @@ class GitHubResearchClient:
         error_on_not_found: Literal[True] = True,
         *,
         method: Callable[..., Awaitable[GitHubKitResponse[T]]],
-        **request_args: Any,
+        **request_args: Any,  # pyright: ignore[reportAny]
     ) -> T: ...
 
     async def _perform_rest_request[T: GITHUBKIT_RESPONSE_TYPE](
@@ -254,7 +254,7 @@ class GitHubResearchClient:
         error_on_not_found: bool | None = None,
         *,
         method: Callable[..., Awaitable[GitHubKitResponse[T]]],
-        **request_args: Any,
+        **request_args: Any,  # pyright: ignore[reportAny]
     ) -> T | None:
         """Perform a request and extract the response.
 

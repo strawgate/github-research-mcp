@@ -6,7 +6,7 @@ from abc import ABC
 from collections import defaultdict
 from collections.abc import Sequence
 from datetime import UTC, datetime, timedelta
-from typing import Any, ClassVar, Literal, NotRequired, Protocol, Self, TypedDict, TypeVar, cast, overload
+from typing import Any, ClassVar, Literal, NotRequired, Protocol, Self, TypedDict, TypeVar, cast, overload, override
 
 import mcp.types
 from cachetools import TLRUCache
@@ -578,6 +578,7 @@ class ResponseCachingMiddleware(Middleware):
             key=_make_call_tool_cache_key(msg=context.message),
         )
 
+    @override
     async def on_read_resource(
         self,
         context: MiddlewareContext[mcp.types.ReadResourceRequestParams],
@@ -594,6 +595,7 @@ class ResponseCachingMiddleware(Middleware):
             key=_make_read_resource_cache_key(msg=context.message),
         )
 
+    @override
     async def on_get_prompt(
         self,
         context: MiddlewareContext[mcp.types.GetPromptRequestParams],
@@ -610,6 +612,7 @@ class ResponseCachingMiddleware(Middleware):
             key=_make_get_prompt_cache_key(msg=context.message),
         )
 
+    @override
     async def on_notification(
         self,
         context: MiddlewareContext[mcp.types.Notification],
