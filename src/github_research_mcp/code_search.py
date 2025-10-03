@@ -15,7 +15,7 @@ from fastmcp.utilities.logging import configure_logging, get_logger
 from github_research_mcp.clients.github import GitHubResearchClient
 from github_research_mcp.sampling.handler import get_sampling_handler
 from github_research_mcp.servers.code import CodeServer
-from github_research_mcp.utilities.stars import check_minimum_stars, check_owner_allowlist, default_minimum_stars
+from github_research_mcp.utilities.stars import check_minimum_stars, check_owner_allowlist, get_minimum_stars
 
 configure_logging()
 
@@ -36,7 +36,7 @@ def new_mcp_server():
         ):
             msg = (
                 f"Repository {owner}/{repo} is not eligible for code search, "
-                f"it has less than {default_minimum_stars} stars and is not explicitly allowlisted."
+                f"it has less than {get_minimum_stars()} stars and is not explicitly allowlisted."
             )
             raise ValueError(msg)
 

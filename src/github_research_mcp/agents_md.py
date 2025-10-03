@@ -17,7 +17,7 @@ from github_research_mcp.sampling.handler import get_sampling_handler
 from github_research_mcp.servers.code import CodeServer
 from github_research_mcp.servers.research import ResearchServer
 from github_research_mcp.servers.summary import RepositorySummary, SummaryServer
-from github_research_mcp.utilities.stars import check_minimum_stars, check_owner_allowlist, default_minimum_stars
+from github_research_mcp.utilities.stars import check_minimum_stars, check_owner_allowlist, get_minimum_stars
 from github_research_mcp.vendored.caching import CacheProtocol, MethodSettings, ResponseCachingMiddleware
 
 logger: Logger = get_logger(__name__)
@@ -41,7 +41,7 @@ def new_mcp_server():
         ) and not check_owner_allowlist(owner=owner):
             msg = (
                 f"Repository {owner}/{repo} is not eligible for AGENTS.md generation, "
-                f"it has less than {default_minimum_stars} stars and is not explicitly allowlisted."
+                f"it has less than {get_minimum_stars()} stars and is not explicitly allowlisted."
             )
             raise ValueError(msg)
 

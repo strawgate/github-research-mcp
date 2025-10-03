@@ -77,7 +77,7 @@ If not provided, common types are excluded by default (binary files, lock files,
                         },
                         "max_results": {"default": 30, "description": "The maximum number of results to return.", "type": "integer"},
                     },
-                    "required": IsList("owner", "patterns", "repo"),
+                    "required": IsList("owner", "patterns", "repo", check_order=False),
                 },
             }
         ]
@@ -89,28 +89,10 @@ async def test_code_search_mcp_client_code_search(code_search_mcp_client: Client
         "search_code",
         arguments={"owner": "strawgate", "repo": "github-issues-e2e-test", "patterns": ["world!"]},
     )
+
     assert result.structured_content == snapshot(
         {
             "result": [
-                {
-                    "url": "https://github.com/strawgate/github-issues-e2e-test/blob/main/main.py",
-                    "matched_lines": [
-                        {
-                            "before": {
-                                "32": "    # Sample code to analyze",
-                                "33": "    sample_code = '''",
-                                "34": "def hello_world():",
-                                "35": '    """A simple function that greets the world."""',
-                            },
-                            "match": {"36": '    print("Hello, World!")'},
-                            "after": {
-                                "37": '    return "greeting_complete"',
-                                "39": 'if __name__ == "__main__":',
-                                "40": "    result = hello_world()",
-                            },
-                        }
-                    ],
-                },
                 {
                     "url": "https://github.com/strawgate/github-issues-e2e-test/blob/main/README.md",
                     "matched_lines": [
@@ -133,6 +115,25 @@ async def test_code_search_mcp_client_code_search(code_search_mcp_client: Client
                             },
                             "after": {},
                         },
+                    ],
+                },
+                {
+                    "url": "https://github.com/strawgate/github-issues-e2e-test/blob/main/main.py",
+                    "matched_lines": [
+                        {
+                            "before": {
+                                "32": "    # Sample code to analyze",
+                                "33": "    sample_code = '''",
+                                "34": "def hello_world():",
+                                "35": '    """A simple function that greets the world."""',
+                            },
+                            "match": {"36": '    print("Hello, World!")'},
+                            "after": {
+                                "37": '    return "greeting_complete"',
+                                "39": 'if __name__ == "__main__":',
+                                "40": "    result = hello_world()",
+                            },
+                        }
                     ],
                 },
                 {

@@ -1,3 +1,4 @@
+import os
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
@@ -7,7 +8,7 @@ from fastmcp.client import Client
 from fastmcp.client.transports import FastMCPTransport
 from inline_snapshot import snapshot
 
-from github_research_mcp.agents_md import mcp
+from github_research_mcp.agents_md import new_mcp_server
 from tests.conftest import dump_list_for_snapshot
 
 if TYPE_CHECKING:
@@ -16,7 +17,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def agents_md_mcp() -> FastMCP[Any]:
-    return mcp
+    os.environ["OWNER_ALLOWLIST"] = "strawgate"
+    return new_mcp_server()
 
 
 @pytest.fixture

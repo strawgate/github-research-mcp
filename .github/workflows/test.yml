@@ -19,7 +19,7 @@ jobs:
       - name: "Install uv"
         uses: astral-sh/setup-uv@v6
 
-      - name: "Install ${matrix.package}"
+      - name: "Install"
         run: uv sync --locked --group dev
 
       - name: "Lint"
@@ -41,15 +41,14 @@ jobs:
       - name: "Install uv"
         uses: astral-sh/setup-uv@v6
 
-
-      - name: "Install ${matrix.package}"
+      - name: "Install"
         run: uv sync --locked --group dev
 
-      - name: "Test ${matrix.package}"
+      - name: "Test"
         run: uv run pytest tests -m "not skip_on_ci"
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           GOOGLE_API_KEY: ${{ secrets.GOOGLE_API_KEY }}
 
-      - name: "Build ${matrix.package}"
+      - name: "Build"
         run: uv build

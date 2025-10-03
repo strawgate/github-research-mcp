@@ -448,7 +448,7 @@ class CodeServer:
             if len(results) >= max_results:
                 break
 
-        return results
+        return sorted(results, key=lambda x: x.url)
 
     def _clone_repository(self, owner: str, repo: str, directory: Path) -> str:
         try:
