@@ -31,7 +31,7 @@ if not clone_dir.exists():
 ONE_WEEK_IN_SECONDS = 60 * 60 * 24 * 7
 
 research_server: ResearchServer = ResearchServer(research_client=GitHubResearchClient())
-summary_server: SummaryServer = SummaryServer(research_server=research_server, code_server=CodeServer())
+summary_server: SummaryServer = SummaryServer(research_server=research_server, code_server=CodeServer(clone_dir=clone_dir))
 
 
 async def generate_agents_md(owner: str, repo: str) -> RepositorySummary:

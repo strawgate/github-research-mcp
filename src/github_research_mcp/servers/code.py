@@ -291,7 +291,7 @@ class CodeServer:
     def __init__(self, logger: Logger | None = None, clone_dir: Path | None = None):
         self.repositories: dict[str, LocalRepository] = {}
         self.logger: Logger = logger or get_logger(name=__name__)
-        self.clone_dir: Path = clone_dir.resolve() if clone_dir else Path("clone_dir")
+        self.clone_dir: Path = (clone_dir or Path("clone_dir")).resolve()
         self.repository_lock: asyncio.Lock = asyncio.Lock()
 
     def _add_repository(self, owner: str, repo: str, branch: str, local_path: Path) -> LocalRepository:
