@@ -1,13 +1,15 @@
+import os
 from collections.abc import AsyncGenerator
 from typing import TYPE_CHECKING, Any
 
 import pytest
+from dirty_equals import IsList
 from fastmcp import FastMCP
 from fastmcp.client import Client
 from fastmcp.client.transports import FastMCPTransport
 from inline_snapshot import snapshot
 
-from github_research_mcp.code_search import mcp
+from github_research_mcp.code_search import new_mcp_server
 from tests.conftest import dump_list_for_snapshot
 
 if TYPE_CHECKING:
@@ -16,7 +18,8 @@ if TYPE_CHECKING:
 
 @pytest.fixture
 def code_search_mcp() -> FastMCP[Any]:
-    return mcp
+    os.environ["OWNER_ALLOWLIST"] = "strawgate"
+    return new_mcp_server()
 
 
 @pytest.fixture
@@ -74,7 +77,7 @@ If not provided, common types are excluded by default (binary files, lock files,
                         },
                         "max_results": {"default": 30, "description": "The maximum number of results to return.", "type": "integer"},
                     },
-                    "required": ["owner", "patterns", "repo"],
+                    "required": IsList("owner", "patterns", "repo"),
                 },
             }
         ]
@@ -91,7 +94,7 @@ async def test_code_search_mcp_client_code_search(code_search_mcp_client: Client
             "result": [
                 {
                     "url": "https://github.com/strawgate/github-issues-e2e-test/blob/main/main.py",
-                    "matches": [
+                    "matched_lines": [
                         {
                             "before": {
                                 "32": "    # Sample code to analyze",
@@ -110,7 +113,7 @@ async def test_code_search_mcp_client_code_search(code_search_mcp_client: Client
                 },
                 {
                     "url": "https://github.com/strawgate/github-issues-e2e-test/blob/main/README.md",
-                    "matches": [
+                    "matched_lines": [
                         {
                             "before": {"47": "```python", "48": "from gith_ub import ExistentialCoder", "50": "coder = ExistentialCoder()"},
                             "match": {"51": "coder.analyze_code(\"def hello_world(): print('Hello, World!')\")"},
@@ -134,7 +137,7 @@ async def test_code_search_mcp_client_code_search(code_search_mcp_client: Client
                 },
                 {
                     "url": "https://github.com/strawgate/github-issues-e2e-test/blob/main/tests/test_existential_coder.py",
-                    "matches": [
+                    "matched_lines": [
                         {
                             "before": {
                                 "27": "    def test_analyze_code_function(self):",

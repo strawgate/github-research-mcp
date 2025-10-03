@@ -155,7 +155,7 @@ async def test_simple_search_function_name(repository_server: CodeServer):
 
 async def test_simple_search_class_name(repository_server: CodeServer):
     search_result: list[FileWithMatches] = await repository_server.search_code(
-        owner="strawgate", repo="github-issues-e2e-test", patterns=["ExistentialCoder"], max_results=1
+        owner="strawgate", repo="github-issues-e2e-test", patterns=["ExistentialCoder"], max_results=5
     )
 
     assert search_result == snapshot(
@@ -173,7 +173,125 @@ async def test_simple_search_class_name(repository_server: CodeServer):
                         },
                     )
                 ],
-            )
+            ),
+            FileWithMatches(
+                url=AnyHttpUrl("https://github.com/strawgate/github-issues-e2e-test/blob/main/main.py"),
+                matched_lines=[
+                    MatchedLine(
+                        before={6: "This is the main entry point for the G.I.T.H.U.B. application.", 7: '"""'},
+                        match={9: "from src.existential_coder import ExistentialCoder"},
+                        after={
+                            10: "from src.philosopher_agent import PhilosopherAgent",
+                            11: "from src.zen_master import ZenMaster",
+                            12: "from src.oracle import Oracle",
+                            13: "from src.utils import contemplate_code, find_meaning_in_bugs",
+                        },
+                    ),
+                    MatchedLine(
+                        before={26: '    print("=" * 60)', 27: "    print()", 29: "    # Initialize the existential coder"},
+                        match={30: "    coder = ExistentialCoder()"},
+                        after={32: "    # Sample code to analyze", 33: "    sample_code = '''", 34: "def hello_world():"},
+                    ),
+                ],
+            ),
+            FileWithMatches(
+                url=AnyHttpUrl("https://github.com/strawgate/github-issues-e2e-test/blob/main/src/cli.py"),
+                matched_lines=[
+                    MatchedLine(
+                        before={
+                            8: "from rich.console import Console",
+                            9: "from rich.panel import Panel",
+                            10: "from rich.text import Text",
+                            11: "from rich.prompt import Prompt",
+                        },
+                        match={12: "from .existential_coder import ExistentialCoder, ContemplationLevel"},
+                        after={
+                            13: "from .philosopher_agent import PhilosopherAgent",
+                            14: "from .zen_master import ZenMaster",
+                            15: "from .oracle import Oracle",
+                        },
+                    ),
+                    MatchedLine(
+                        before={
+                            51: "        with open(file_path, 'r') as f:",
+                            52: "            code = f.read()",
+                            54: "        contemplation_level = ContemplationLevel(level)",
+                        },
+                        match={55: "        coder = ExistentialCoder(contemplation_level)"},
+                        after={
+                            56: "        insights = coder.analyze_code(code, file_path)",
+                            58: '        console.print(f"\\n[bold green]Analyzing {file_path}...[/bold green]")',
+                            59: '        console.print(f"[dim]Contemplation Level: {level}[/dim]\\n")',
+                        },
+                    ),
+                    MatchedLine(
+                        before={
+                            79: '    """Generate a philosophical commit message based on your changes."""',
+                            80: "    if not changes:",
+                            81: '        changes = ["Made some changes"]',
+                        },
+                        match={83: "    coder = ExistentialCoder()"},
+                        after={
+                            84: "    message = coder.generate_commit_message(list(changes))",
+                            86: "    console.print(Panel(",
+                            87: "        message,",
+                        },
+                    ),
+                ],
+            ),
+            FileWithMatches(
+                url=AnyHttpUrl("https://github.com/strawgate/github-issues-e2e-test/blob/main/tests/test_existential_coder.py"),
+                matched_lines=[
+                    MatchedLine(
+                        before={1: '"""'},
+                        match={2: "Tests for the ExistentialCoder class."},
+                        after={
+                            4: "These tests verify that the existential coder provides meaningful",
+                            5: "philosophical insights about code.",
+                            6: '"""',
+                        },
+                    ),
+                    MatchedLine(
+                        before={8: "import pytest"},
+                        match={9: "from src.existential_coder import ExistentialCoder, ContemplationLevel, CodeInsight"},
+                    ),
+                    MatchedLine(match={12: "class TestExistentialCoder:"}),
+                    MatchedLine(match={13: '    """Test cases for the ExistentialCoder class."""'}, after={15: "    def test_init(self):"}),
+                    MatchedLine(match={16: '        """Test that ExistentialCoder initializes correctly."""'}),
+                    MatchedLine(
+                        match={17: "        coder = ExistentialCoder()"},
+                        after={
+                            18: "        assert coder.contemplation_level == ContemplationLevel.DEEP",
+                            19: "        assert len(coder.philosophical_questions) > 0",
+                            20: "        assert len(coder.wisdom_quotes) > 0",
+                        },
+                    ),
+                ],
+            ),
+            FileWithMatches(
+                url=AnyHttpUrl("https://github.com/strawgate/github-issues-e2e-test/blob/main/src/__init__.py"),
+                matched_lines=[
+                    MatchedLine(
+                        before={
+                            10: '__version__ = "0.1.0"',
+                            11: '__author__ = "The Digital Sages"',
+                            12: '__email__ = "wisdom@gith-ub.dev"',
+                        },
+                        match={14: "from .existential_coder import ExistentialCoder"},
+                        after={
+                            15: "from .philosopher_agent import PhilosopherAgent",
+                            16: "from .zen_master import ZenMaster",
+                            17: "from .oracle import Oracle",
+                            18: "from .utils import contemplate_code, find_meaning_in_bugs",
+                        },
+                    ),
+                    MatchedLine(
+                        before={20: "__all__ = ["},
+                        match={21: '    "ExistentialCoder",'},
+                        after={22: '    "PhilosopherAgent",', 23: '    "ZenMaster",', 24: '    "Oracle",', 25: '    "contemplate_code",'},
+                    ),
+                ],
+            ),
         ]
     )
 

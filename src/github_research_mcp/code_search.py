@@ -21,35 +21,40 @@ configure_logging()
 
 logger = get_logger(__name__)
 
-clone_dir: Path = Path(os.getenv("CLONE_DIR", "tmp"))
-if not clone_dir.exists():
-    clone_dir.mkdir(parents=True, exist_ok=True)
 
-research_client: GitHubResearchClient = GitHubResearchClient()
-code_server: CodeServer = CodeServer(logger=logger, clone_dir=clone_dir)
+def new_mcp_server():
+    clone_dir: Path = Path(os.getenv("CLONE_DIR", "tmp"))
+    if not clone_dir.exists():
+        clone_dir.mkdir(parents=True, exist_ok=True)
+
+    research_client: GitHubResearchClient = GitHubResearchClient()
+    code_server: CodeServer = CodeServer(logger=logger, clone_dir=clone_dir)
+
+    async def validate_code_search(owner: str, repo: str, **kwargs: Any) -> ToolResult:  # pyright: ignore[reportAny]
+        if not await check_minimum_stars(research_client=research_client, owner=owner, repo=repo) and not check_owner_allowlist(
+            owner=owner
+        ):
+            msg = (
+                f"Repository {owner}/{repo} is not eligible for code search, "
+                f"it has less than {default_minimum_stars} stars and is not explicitly allowlisted."
+            )
+            raise ValueError(msg)
+
+        return await forward_raw(owner=owner, repo=repo, **kwargs)
+
+    code_search_tool: Tool = Tool.from_function(fn=code_server.search_code)
+    validated_code_search_tool: Tool = TransformedTool.from_tool(tool=code_search_tool, transform_fn=validate_code_search)
+
+    return FastMCP[None](
+        name="Agents.md Generator",
+        sampling_handler=get_sampling_handler(),
+        sampling_handler_behavior="always",
+        tools=[validated_code_search_tool],
+        middleware=[LoggingMiddleware(include_payloads=True, logger=get_logger(__name__))],
+    )
 
 
-async def validate_code_search(owner: str, repo: str, **kwargs: Any) -> ToolResult:  # pyright: ignore[reportAny]
-    if not await check_minimum_stars(research_client=research_client, owner=owner, repo=repo) and not check_owner_allowlist(owner=owner):
-        msg = (
-            f"Repository {owner}/{repo} is not eligible for code search, "
-            f"it has less than {default_minimum_stars} stars and is not explicitly allowlisted."
-        )
-        raise ValueError(msg)
-
-    return await forward_raw(owner=owner, repo=repo, **kwargs)
-
-
-code_search_tool: Tool = Tool.from_function(fn=code_server.search_code)
-validated_code_search_tool: Tool = TransformedTool.from_tool(tool=code_search_tool, transform_fn=validate_code_search)
-
-mcp: FastMCP[None] = FastMCP[None](
-    name="Agents.md Generator",
-    sampling_handler=get_sampling_handler(),
-    sampling_handler_behavior="always",
-    tools=[validated_code_search_tool],
-    middleware=[LoggingMiddleware(include_payloads=True, logger=get_logger(__name__))],
-)
+mcp: FastMCP[None] = new_mcp_server()
 
 
 @click.command()
