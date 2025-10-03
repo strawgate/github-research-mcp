@@ -1,49 +1,50 @@
-import asyncio
 import os
+from logging import Logger
+from pathlib import Path
 from typing import Literal
 
-import asyncclick as click
+import click
 from fastmcp import FastMCP
 from fastmcp.server.middleware.logging import LoggingMiddleware
 from fastmcp.utilities.logging import get_logger
 
+from github_research_mcp.clients.github import GitHubResearchClient
 from github_research_mcp.sampling.handler import get_sampling_handler
+from github_research_mcp.servers.code import CodeServer
 from github_research_mcp.servers.research import ResearchServer
 from github_research_mcp.servers.summary import SummaryServer
 
-logger = get_logger(__name__)
+logger: Logger = get_logger(name=__name__)
 
-disable_summaries: bool = bool(os.getenv("DISABLE_SUMMARIES"))
+enable_summaries: bool = not bool(os.getenv("DISABLE_SUMMARIES"))
 
 mcp: FastMCP[None] = FastMCP[None](
     name="GitHub Research MCP",
-    sampling_handler=None if disable_summaries else get_sampling_handler(),
+    sampling_handler=get_sampling_handler() if enable_summaries else None,
 )
 
 mcp.add_middleware(middleware=LoggingMiddleware(include_payloads=True, logger=logger))
 
-server: ResearchServer | SummaryServer
+research_server: ResearchServer = ResearchServer(research_client=GitHubResearchClient(), logger=logger)
+_ = research_server.register_tools(fastmcp=mcp)
 
-if disable_summaries:
-    server = ResearchServer(logger=logger)
-    logger.info("Running in research mode. Summaries are disabled.")
-else:
-    server = SummaryServer(logger=logger)
-    logger.info("Running in summary mode. Summaries are enabled.")
+if enable_summaries:
+    code_server: CodeServer = CodeServer(logger=logger, clone_dir=Path("code_server"))
+    _ = code_server.register_tools(mcp=mcp)
 
-server.register_tools(fastmcp=mcp)
+    summary_server: SummaryServer = SummaryServer(research_server=research_server, code_server=code_server, logger=logger)
+    _ = summary_server.register_tools(fastmcp=mcp)
 
 
 @click.command()
 @click.option(
-    "--mcp-transport", type=click.Choice(["stdio", "streamable-http"]), default="stdio", help="The transport to run the MCP server on"
+    "--mcp-transport",
+    type=click.Choice(["stdio", "streamable-http"]),
+    default="stdio",
+    help="The transport to run the MCP server on",
 )
-async def cli(mcp_transport: Literal["stdio", "streamable-http"]):
-    await mcp.run_async(transport=mcp_transport)
-
-
-def run_mcp():
-    asyncio.run(cli())
+def run_mcp(mcp_transport: Literal["stdio", "streamable-http"]):
+    mcp.run(transport=mcp_transport)
 
 
 if __name__ == "__main__":

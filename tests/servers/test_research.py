@@ -13,7 +13,6 @@ from tests.conftest import (
     E2EIssue,
     E2EPullRequest,
     E2ERepository,
-    E2ERepositoryFiles,
     dump_call_tool_result_for_snapshot,
     dump_list_for_snapshot,
     dump_structured_content_for_snapshot,
@@ -69,12 +68,6 @@ async def test_list_tools(research_mcp_client: Client[FastMCPTransport]) -> None
                 "name": "search_pull_requests",
                 "description": "Search for pull requests in a GitHub repository by the provided keywords.",
             },
-            {"name": "get_files", "description": "Get the contents of files from a GitHub repository, optionally truncating the content."},
-            {
-                "name": "find_file_paths",
-                "description": "Find files in a GitHub repository by their names/paths. Does not search file contents.",
-            },
-            {"name": "search_code_by_keywords", "description": "Search for code in a GitHub repository by the provided keywords."},
             {
                 "name": "get_readmes",
                 "description": """\
@@ -220,69 +213,69 @@ it has a related issue #1 \
     )
 
 
-async def test_find_file_paths(research_mcp_client: Client[FastMCPTransport], e2e_repository: E2ERepository) -> None:
-    result: CallToolResult = await research_mcp_client.call_tool(
-        "find_file_paths",
-        arguments={
-            "owner": e2e_repository.owner,
-            "repo": e2e_repository.repo,
-            "include_patterns": ["*README.md", "*CONTRIBUTORS.md"],
-            "exclude_patterns": ["*.txt"],
-        },
-    )
-    assert dump_structured_content_for_snapshot(result) == snapshot(
-        {"directories": [], "files": ["CONTRIBUTORS.md", "README.md"], "truncated": False}
-    )
+# async def test_find_file_paths(research_mcp_client: Client[FastMCPTransport], e2e_repository: E2ERepository) -> None:
+#     result: CallToolResult = await research_mcp_client.call_tool(
+#         "find_file_paths",
+#         arguments={
+#             "owner": e2e_repository.owner,
+#             "repo": e2e_repository.repo,
+#             "include_patterns": ["*README.md", "*CONTRIBUTORS.md"],
+#             "exclude_patterns": ["*.txt"],
+#         },
+#     )
+#     assert dump_structured_content_for_snapshot(result) == snapshot(
+#         {"directories": [], "files": ["CONTRIBUTORS.md", "README.md"], "truncated": False}
+#     )
 
 
-async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_files: E2ERepositoryFiles) -> None:
-    result: CallToolResult = await research_mcp_client.call_tool(
-        "get_files",
-        arguments={
-            "owner": e2e_files.owner,
-            "repo": e2e_files.repo,
-            "paths": e2e_files.paths,
-            "truncate_lines": 10,
-            "truncate_characters": 100,
-        },
-    )
-    assert dump_call_tool_result_for_snapshot(result) == snapshot(
-        {
-            "content": [
-                {
-                    "type": "text",
-                    "text": '[{"path":"README.md","encoding":"utf-8","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":""},"total_lines":75,"truncated":false},{"path":"CONTRIBUTORS.md","encoding":"utf-8","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":""},"total_lines":37,"truncated":false}]',
-                    "annotations": None,
-                    "meta": None,
-                }
-            ],
-            "structured_content": {
-                "result": [
-                    {
-                        "path": "README.md",
-                        "encoding": "utf-8",
-                        "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""},
-                        "total_lines": 75,
-                        "truncated": False,
-                    },
-                    {
-                        "path": "CONTRIBUTORS.md",
-                        "encoding": "utf-8",
-                        "content": {
-                            "1": "# Contributors",
-                            "2": "",
-                            "3": "This project exists thanks to all the people who contribute.",
-                            "4": "",
-                            "5": "## Core Team",
-                            "6": "",
-                        },
-                        "total_lines": 37,
-                        "truncated": False,
-                    },
-                ]
-            },
-        }
-    )
+# async def test_get_files(research_mcp_client: Client[FastMCPTransport], e2e_files: E2ERepositoryFiles) -> None:
+#     result: CallToolResult = await research_mcp_client.call_tool(
+#         "get_files",
+#         arguments={
+#             "owner": e2e_files.owner,
+#             "repo": e2e_files.repo,
+#             "paths": e2e_files.paths,
+#             "truncate_lines": 10,
+#             "truncate_characters": 100,
+#         },
+#     )
+#     assert dump_call_tool_result_for_snapshot(result) == snapshot(
+#         {
+#             "content": [
+#                 {
+#                     "type": "text",
+#                     "text": '[{"path":"README.md","encoding":"utf-8","content":{"1":"# G.I.T.H.U.B. - The Existential Code Companion","2":""},"total_lines":75,"truncated":false},{"path":"CONTRIBUTORS.md","encoding":"utf-8","content":{"1":"# Contributors","2":"","3":"This project exists thanks to all the people who contribute.","4":"","5":"## Core Team","6":""},"total_lines":37,"truncated":false}]',
+#                     "annotations": None,
+#                     "meta": None,
+#                 }
+#             ],
+#             "structured_content": {
+#                 "result": [
+#                     {
+#                         "path": "README.md",
+#                         "encoding": "utf-8",
+#                         "content": {"1": "# G.I.T.H.U.B. - The Existential Code Companion", "2": ""},
+#                         "total_lines": 75,
+#                         "truncated": False,
+#                     },
+#                     {
+#                         "path": "CONTRIBUTORS.md",
+#                         "encoding": "utf-8",
+#                         "content": {
+#                             "1": "# Contributors",
+#                             "2": "",
+#                             "3": "This project exists thanks to all the people who contribute.",
+#                             "4": "",
+#                             "5": "## Core Team",
+#                             "6": "",
+#                         },
+#                         "total_lines": 37,
+#                         "truncated": False,
+#                     },
+#                 ]
+#             },
+#         }
+#     )
 
 
 async def test_get_readmes(research_mcp_client: Client[FastMCPTransport], e2e_repository: E2ERepository) -> None:

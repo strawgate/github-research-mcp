@@ -6,7 +6,7 @@ from fastmcp.experimental.sampling.handlers.openai import BaseLLMSamplingHandler
 from pydantic import BaseModel, Field
 
 from github_research_mcp.sampling.utility import new_sampling_message, structured_sample, tool_calling_sample
-from tests.servers.test_public import get_result_from_call_tool_result
+from tests.servers.test_summary import get_result_from_call_tool_result
 
 
 @pytest.fixture
@@ -14,11 +14,11 @@ async def tool_server() -> FastMCP[Any]:
     fastmcp = FastMCP[Any](name="Test Server")
 
     @fastmcp.tool
-    async def test_tool(arg1: str, arg2: int) -> str:
+    async def test_tool(arg1: str, arg2: int) -> str:  # pyright: ignore[reportUnusedFunction]
         return f"Hello, world! {arg1} {arg2}"
 
     @fastmcp.tool
-    async def test_tool2(arg1: str, arg2: int) -> str:
+    async def test_tool2(arg1: str, arg2: int) -> str:  # pyright: ignore[reportUnusedFunction]
         return f"Hello, world! {arg1} {arg2}"
 
     return fastmcp
@@ -37,7 +37,7 @@ async def sampling_server(sampling_handler: BaseLLMSamplingHandler, tool_server:
     )
 
     @fastmcp.tool
-    async def test_structured_sampling() -> AMadeUpPerson:
+    async def test_structured_sampling() -> AMadeUpPerson:  # pyright: ignore[reportUnusedFunction]
         made_up_person, _ = await structured_sample(
             system_prompt="You are a helpful assistant.",
             messages=[new_sampling_message("user", "Return a person object with name John and age 30.")],
@@ -47,10 +47,10 @@ async def sampling_server(sampling_handler: BaseLLMSamplingHandler, tool_server:
         return made_up_person
 
     @fastmcp.tool
-    async def test_sampling_tool_calling() -> str:
+    async def test_sampling_tool_calling() -> str:  # pyright: ignore[reportUnusedFunction]
         client = Client[Any](transport=tool_server)
 
-        await tool_calling_sample(
+        _ = await tool_calling_sample(
             system_prompt="You are a helpful assistant.",
             messages=[new_sampling_message("user", "Call all available tools please.")],
             client=client,
@@ -63,7 +63,7 @@ async def sampling_server(sampling_handler: BaseLLMSamplingHandler, tool_server:
 
 async def test_tool_sample(sampling_server: FastMCP[Any]):
     async with Client[Any](transport=sampling_server) as client:
-        await client.call_tool(
+        _ = await client.call_tool(
             name="test_sampling_tool_calling",
         )
 

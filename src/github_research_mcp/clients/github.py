@@ -21,7 +21,6 @@ from github_research_mcp.clients.models.github import (
     PullRequestDiff,
     Repository,
     RepositoryFileWithContent,
-    RepositoryFileWithLineMatches,
 )
 from github_research_mcp.models.graphql.base import BaseGqlQuery
 from github_research_mcp.models.graphql.issue_or_pull_request import (
@@ -38,7 +37,6 @@ if TYPE_CHECKING:
     from types import CoroutineType
 
     from githubkit.versions.v2022_11_28.models import GitTree as GitHubKitGitTree
-    from githubkit.versions.v2022_11_28.models import SearchCodeGetResponse200 as GitHubKitSearchCodeGetResponse200
 
 NOT_FOUND_ERROR = 404
 
@@ -750,33 +748,33 @@ class GitHubResearchClient:
     #         matches=matches,
     #     )
 
-    async def search_code_by_keywords(
-        self,
-        owner: str,
-        repo: str,
-        keywords: set[str],
-    ) -> list[RepositoryFileWithLineMatches]:
-        """Search for code in a repository by the provided keywords."""
+    # async def search_code_by_keywords(
+    #     self,
+    #     owner: str,
+    #     repo: str,
+    #     keywords: set[str],
+    # ) -> list[RepositoryFileWithLineMatches]:
+    #     """Search for code in a repository by the provided keywords."""
 
-        escaped_keywords: list[str] = [f'"{keyword}"' for keyword in sorted(keywords)]
+    #     escaped_keywords: list[str] = [f'"{keyword}"' for keyword in sorted(keywords)]
 
-        keyword_query = " ".join(escaped_keywords)
+    #     keyword_query = " ".join(escaped_keywords)
 
-        query: str = f"repo:{owner}/{repo} {keyword_query}"
+    #     query: str = f"repo:{owner}/{repo} {keyword_query}"
 
-        response: GitHubKitSearchCodeGetResponse200 = await self._perform_rest_request(
-            action="Search code by keywords",
-            log_request=True,
-            error_on_not_found=True,
-            method=self.githubkit_client.rest.search.async_code,
-            q=query,
-            headers={"Accept": "application/vnd.github.text-match+json"},
-        )
+    #     response: GitHubKitSearchCodeGetResponse200 = await self._perform_rest_request(
+    #         action="Search code by keywords",
+    #         log_request=True,
+    #         error_on_not_found=True,
+    #         method=self.githubkit_client.rest.search.async_code,
+    #         q=query,
+    #         headers={"Accept": "application/vnd.github.text-match+json"},
+    #     )
 
-        return [
-            RepositoryFileWithLineMatches.from_code_search_result_item(code_search_result_item=code_search_result_item)
-            for code_search_result_item in response.items
-        ]
+    #     return [
+    #         RepositoryFileWithLineMatches.from_code_search_result_item(code_search_result_item=code_search_result_item)
+    #         for code_search_result_item in response.items
+    #     ]
 
     async def search_pull_requests(
         self,

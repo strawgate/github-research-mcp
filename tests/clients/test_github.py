@@ -29,7 +29,6 @@ from tests.conftest import (
 if TYPE_CHECKING:
     from github_research_mcp.clients.models.github import (
         Repository,
-        RepositoryFileWithLineMatches,
     )
     from github_research_mcp.models.graphql.issue_or_pull_request import GqlIssueWithDetails, GqlPullRequestWithDetails
 
@@ -353,127 +352,6 @@ class TestFindFiles:
         )
 
         assert dump_for_snapshot(tree) == snapshot({"directories": [], "files": [], "truncated": False})
-
-
-class TestSearchCode:
-    async def test_search_code_by_one_keyword(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
-        results: list[RepositoryFileWithLineMatches] = await github_research_client.search_code_by_keywords(
-            owner=e2e_repository.owner,
-            repo=e2e_repository.repo,
-            keywords={"philosophy"},
-        )
-
-        assert len(results) == 4
-
-        assert dump_list_for_snapshot(results) == snapshot(
-            [
-                {
-                    "path": "README.md",
-                    "matches": [
-                        """\
-# Output: "But what is 'Hello'? What is 'World'? Are we not all just strings in the cosmic interpreter?"
-```
-
-## Philosophy
-
-G.I.T.H.U.B. is built on the principle that every line of code is a reflection of the human condition. We believe that:
-"""
-                    ],
-                    "keywords": ["Philosophy"],
-                },
-                {
-                    "path": "src/utils.py",
-                    "matches": [
-                        '''\
-    return None
-
-
-def generate_commit_philosophy(changes: List[str]) -> str:
-    """
-    Generate a philosophical reflection on the changes made.
-    \
-'''
-                    ],
-                    "keywords": ["philosophy"],
-                },
-                {
-                    "path": "src/oracle.py",
-                    "matches": [
-                        """\
-        # Determine the type of prophecy needed
-        if any(word in question_lower for word in ["code", "programming", "function", "bug", "error"]):
-            prophecy_type = ProphecyType.TECHNICAL
-        elif any(word in question_lower for word in ["meaning", "purpose", "why", "philosophy"]):
-            prophecy_type = ProphecyType.PHILOSOPHICAL
-        elif any(word in question_lower for word in ["career", "future", "success", "path"]):
-            prophecy_type = ProphecyType.PERSONAL\
-"""
-                    ],
-                    "keywords": ["philosophy"],
-                },
-                {
-                    "path": ".github/ISSUE_TEMPLATE/philosophical_question.md",
-                    "matches": [
-                        """\
-name: Philosophical Question - The Digital Universe Seeks Understanding
-about: Ask a deep philosophical question about code, programming, or existence
-title: '[PHILOSOPHY] '
-labels: 'philosophy, cosmic-question, wisdom-seeking'
-assignees: ''
-
----\
-"""
-                    ],
-                    "keywords": ["PHILOSOPHY", "philosophy"],
-                },
-            ]
-        )
-
-    async def test_search_code_by_two_keywords(self, github_research_client: GitHubResearchClient, e2e_repository: E2ERepository):
-        results: list[RepositoryFileWithLineMatches] = await github_research_client.search_code_by_keywords(
-            owner=e2e_repository.owner,
-            repo=e2e_repository.repo,
-            keywords={"philosophy", "enlightenment"},
-        )
-
-        assert len(results) == 2
-
-        assert dump_list_for_snapshot(results) == snapshot(
-            [
-                {
-                    "path": "src/utils.py",
-                    "matches": [
-                        '''\
-
-def generate_commit_philosophy(changes: List[str]) -> str:
-    """\
-''',
-                        """\
-    elif "update" in change_text or "modify" in change_text:
-        return "You have updated the code, and in doing so, you have updated your understanding. Every change is a step toward enlightenment."
-    else:\
-""",
-                    ],
-                    "keywords": ["enlightenment", "philosophy"],
-                },
-                {
-                    "path": ".github/ISSUE_TEMPLATE/philosophical_question.md",
-                    "matches": [
-                        """\
-title: '[PHILOSOPHY] '
-labels: 'philosophy, cosmic-question, wisdom-seeking'
-assignees: ''\
-""",
-                        """\
----
-
-*Remember: Every question is a step on the path to digital enlightenment. The journey of understanding begins with a single question.*\
-""",
-                    ],
-                    "keywords": ["PHILOSOPHY", "enlightenment", "philosophy"],
-                },
-            ]
-        )
 
 
 class TestIssues:

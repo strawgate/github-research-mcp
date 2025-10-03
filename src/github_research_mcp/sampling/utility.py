@@ -201,6 +201,7 @@ class SamplingToolCallRequest(BaseModel):
         call_tool_result: CallToolResult = await client.call_tool(
             name=self.tool_name,
             arguments=self.arguments,
+            raise_on_error=False,
         )
 
         sampling_tool_call_result: SamplingToolCallResult = SamplingToolCallResult.from_call_tool_result(
@@ -216,6 +217,7 @@ class MultipleSamplingToolCallsRequests(BaseModel):
     """A request for a batch of tool calls."""
 
     tool_calls: list[SamplingToolCallRequest]
+    done: bool = Field(description="Set to true if you are done making tool calls.")
 
 
 class SamplingToolCallResult(SamplingToolCallRequest):
@@ -225,13 +227,16 @@ class SamplingToolCallResult(SamplingToolCallRequest):
     def from_call_tool_result(
         cls, sampling_tool_call_request: SamplingToolCallRequest, call_tool_result: CallToolResult
     ) -> "SamplingToolCallResult":
-        result: list[ContentBlock] | dict[str, Any] = call_tool_result.content
+        result: dict[str, Any]
 
         if call_tool_result.structured_content:
             result = call_tool_result.structured_content
 
             if "result" in result:
                 result = result["result"]  # pyright: ignore[reportAny]
+
+        else:
+            result = {"result": [content_block.model_dump() for content_block in call_tool_result.content]}
 
         return cls(
             tool_call_id=sampling_tool_call_request.tool_call_id,
@@ -270,7 +275,7 @@ async def tool_calling_sample(
     model_preferences: ModelPreferences | None = None,
     max_tool_calls: int = 5,
     parallel_tool_calls: bool = False,
-) -> tuple[SamplingMessage, list[SamplingMessage]]:
+) -> tuple[SamplingMessage, list[SamplingMessage], bool]:
     """Sample a response from the server."""
 
     async with client as connected_client:
@@ -304,12 +309,12 @@ You may now call up to {max_tool_calls} tools.
 
         if parallel_tool_calls:
             tool_calls_results = await asyncio.gather(
-                *[tool_call.execute(client=connected_client, logger=logger) for tool_call in tool_calls]
+                *[tool_call.execute(client=connected_client, logger=logger) for tool_call in tool_calls],
             )
         else:
             tool_calls_results = [await tool_call.execute(client=connected_client, logger=logger) for tool_call in tool_calls]
 
-        return assistant_message, [result.to_sampling_message() for result in tool_calls_results]
+        return assistant_message, [result.to_sampling_message() for result in tool_calls_results], tool_calls_request.done
 
 
 async def multi_turn_tool_calling_sample(
@@ -329,7 +334,7 @@ async def multi_turn_tool_calling_sample(
     new_messages: list[SamplingMessage] = []
 
     for _ in range(max_turns):
-        assistant_message, tool_messages = await tool_calling_sample(
+        assistant_message, tool_messages, done = await tool_calling_sample(
             system_prompt=system_prompt,
             messages=[*messages, *new_messages],
             max_tokens=max_tokens,
@@ -341,6 +346,10 @@ async def multi_turn_tool_calling_sample(
         )
 
         new_messages.extend([assistant_message, *tool_messages])
+
+        if done:
+            logger.info("Sampling returns `done`.")
+            break
 
     return new_messages
 
